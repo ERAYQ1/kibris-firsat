@@ -1,16 +1,16 @@
 import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import path from "node:path";
 import * as schema from "@/db/schema";
 
-export type Db = ReturnType<typeof createDb>;
+export type Db = BetterSQLite3Database<typeof schema>;
 
 export function createDb(filePath: string): Db {
   const sqlite = new Database(filePath);
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
-  return drizzle(sqlite, { schema });
+  return drizzle(sqlite, { schema, casing: "snake_case" });
 }
 
 export function resolveDatabasePath(): string {

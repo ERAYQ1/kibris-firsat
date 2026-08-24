@@ -1,5 +1,5 @@
 import { and, eq, gt, sql } from "drizzle-orm";
-import { db as appDb, type Db } from "@/server/db";
+import { getDb, type Db } from "@/server/db";
 import { sessions, users, type User } from "@/db/schema";
 import { Errors } from "@/lib/errors";
 import { hashPassword, verifyPassword } from "@/lib/password";
@@ -33,7 +33,7 @@ function adminEmails(): Set<string> {
 
 export async function register(
   input: unknown,
-  database: Db = appDb
+  database: Db = getDb()
 ): Promise<{ user: PublicUser; token: string }> {
   const data = registerSchema.parse(input);
   const existing = database
@@ -63,7 +63,7 @@ export async function register(
 
 export async function login(
   input: unknown,
-  database: Db = appDb
+  database: Db = getDb()
 ): Promise<{ user: PublicUser; token: string }> {
   const data = loginSchema.parse(input);
   const user = database
@@ -78,7 +78,7 @@ export async function login(
   return { user: toPublicUser(user), token };
 }
 
-export function createSession(userId: number, database: Db = appDb): string {
+export function createSession(userId: number, database: Db = getDb()): string {
   const token = generateSessionToken();
   const expiresAt = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
   database
@@ -90,7 +90,7 @@ export function createSession(userId: number, database: Db = appDb): string {
 
 export function getSessionUser(
   token: string | undefined | null,
-  database: Db = appDb
+  database: Db = getDb()
 ): PublicUser | null {
   if (!token) return null;
   const row = database
@@ -107,7 +107,7 @@ export function getSessionUser(
   return row ? toPublicUser(row.user) : null;
 }
 
-export function destroySession(token: string | undefined | null, database: Db = appDb): void {
+export function destroySession(token: string | undefined | null, database: Db = getDb()): void {
   if (!token) return;
   database
     .delete(sessions)
@@ -115,13 +115,13 @@ export function destroySession(token: string | undefined | null, database: Db = 
     .run();
 }
 
-export function requireUser(token: string | undefined | null, database: Db = appDb): PublicUser {
+export function requireUser(token: string | undefined | null, database: Db = getDb()): PublicUser {
   const user = getSessionUser(token, database);
   if (!user) throw Errors.unauthorized();
   return user;
 }
 
-export function requireAdmin(token: string | undefined | null, database: Db = appDb): PublicUser {
+export function requireAdmin(token: string | undefined | null, database: Db = getDb()): PublicUser {
   const user = requireUser(token, database);
   if (user.role !== "admin") throw Errors.forbidden();
   return user;

@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gt, inArray, like, isNull, or, sql } from "drizzle-orm";
-import { db as appDb, type Db } from "@/server/db";
+import { getDb, type Db } from "@/server/db";
 import {
   categories,
   dealImages,
@@ -8,11 +8,13 @@ import {
   priceEntries,
   reports,
   stores,
+  users,
   votes,
 } from "@/db/schema";
 import { Errors } from "@/lib/errors";
 import type { PublicUser } from "@/server/auth";
 import { dealCreateSchema, parsePriceToCents } from "@/lib/validation";
+import type { ReportReason } from "@/lib/report-reasons";
 
 export interface DealListItem {
   id: number;
@@ -72,7 +74,7 @@ function listQuery(database: Db) {
 
 export async function listDeals(
   options: DealListOptions = {},
-  database: Db = appDb
+  database: Db = getDb()
 ): Promise<{ items: DealListItem[]; total: number; page: number; pageSize: number }> {
   const page = Math.max(1, options.page ?? 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, options.pageSize ?? DEFAULT_PAGE_SIZE));
@@ -119,7 +121,7 @@ export async function listDeals(
   return { items: rows, total: totalRow?.count ?? 0, page, pageSize };
 }
 
-export function getDealDetail(id: number, database: Db = appDb) {
+export function getDealDetail(id: number, database: Db = getDb()) {
   if (!Number.isInteger(id) || id <= 0) throw Errors.badRequest("Geçersiz fırsat.");
   const row = database
     .select({
@@ -159,7 +161,7 @@ export function getDealDetail(id: number, database: Db = appDb) {
 export async function createDeal(
   input: unknown,
   author: PublicUser,
-  database: Db = appDb
+  database: Db = getDb()
 ): Promise<{ id: number }> {
   const data = dealCreateSchema.parse(input);
   const priceCents = parsePriceToCents(data.price);
@@ -230,7 +232,7 @@ export async function createDeal(
 export async function deleteDeal(
   dealId: number,
   actor: PublicUser,
-  database: Db = appDb
+  database: Db = getDb()
 ): Promise<void> {
   const deal = database.select().from(deals).where(eq(deals.id, dealId)).get();
   if (!deal) throw Errors.notFound("Fırsat");
@@ -242,7 +244,7 @@ export async function setVote(
   dealId: number,
   userId: number,
   value: 1 | -1 | 0,
-  database: Db = appDb
+  database: Db = getDb()
 ): Promise<{ upvotes: number; downvotes: number }> {
   const deal = database
     .select({ status: deals.status })
@@ -269,7 +271,7 @@ export async function setVote(
   return getVoteCounts(dealId, database);
 }
 
-export function getVoteCounts(dealId: number, database: Db = appDb) {
+export function getVoteCounts(dealId: number, database: Db = getDb()) {
   const rows = database
     .select({ value: votes.value, count: sql<number>`COUNT(*)` })
     .from(votes)
@@ -284,7 +286,7 @@ export function getVoteCounts(dealId: number, database: Db = appDb) {
 export function getUserVote(
   dealId: number,
   userId: number,
-  database: Db = appDb
+  database: Db = getDb()
 ): 1 | -1 | 0 {
   const row = database
     .select({ value: votes.value })
@@ -298,9 +300,9 @@ export function getUserVote(
 export function createReport(
   dealId: number,
   reporter: PublicUser,
-  reason: string,
+  reason: ReportReason,
   details: string | null,
-  database: Db = appDb
+  database: Db = getDb()
 ): void {
   const deal = database
     .select({ id: deals.id, status: deals.status })
@@ -344,7 +346,7 @@ export type ReportWithMeta = {
   reporterName: string;
 };
 
-export function listOpenReports(database: Db = appDb): ReportWithMeta[] {
+export function listOpenReports(database: Db = getDb()): ReportWithMeta[] {
   return database
     .select({
       id: reports.id,
@@ -369,8 +371,9 @@ export function resolveReport(
   reportId: number,
   action: "dismiss" | "remove_deal",
   admin: PublicUser,
-  database: Db = appDb
+  database: Db = getDb()
 ): void {
+  if (admin.role !== "admin") throw Errors.forbidden();
   const report = database.select().from(reports).where(eq(reports.id, reportId)).get();
   if (!report) throw Errors.notFound("Rapor");
   if (report.status !== "open") throw Errors.conflict("Bu rapor zaten çözümlenmiş.");
@@ -391,7 +394,7 @@ export function resolveReport(
   }
 }
 
-export function expireDueDeals(nowSec: number = Math.floor(Date.now() / 1000), database: Db = appDb): number {
+export function expireDueDeals(nowSec: number = Math.floor(Date.now() / 1000), database: Db = getDb()): number {
   const result = database.run(
     sql`UPDATE deals SET status = 'expired', updated_at = ${nowSec}
         WHERE status = 'active' AND expires_at IS NOT NULL AND expires_at <= ${nowSec}`

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { assertSameOrigin, handleApiError, jsonOk, readJson } from "@/lib/http";
 import { requireUser } from "@/server/auth";
 import { createDeal, listDeals } from "@/server/deals";
@@ -9,7 +8,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const sortParam = url.searchParams.get("sort");
-    const result = await listDealsPublic({
+    const result = await listDeals({
       q: url.searchParams.get("q") ?? undefined,
       categorySlug: url.searchParams.get("category") ?? undefined,
       locationSlug: url.searchParams.get("location") ?? undefined,

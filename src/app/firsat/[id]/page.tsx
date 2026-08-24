@@ -96,7 +96,6 @@ export default async function DealDetailPage({ params }: Props) {
       {detail.images.length > 0 && (
         <section aria-label="Fotoğraflar" className="grid gap-2 sm:grid-cols-2">
           {detail.images.map((img) => (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               key={img.filename}
               src={`/api/images/${img.filename}`}

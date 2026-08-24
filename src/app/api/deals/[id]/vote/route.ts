@@ -1,5 +1,4 @@
-import { NextResponse } from "next/server";
-import { assertSameOrigin, handleApiError, readJson } from "@/lib/http";
+import { assertSameOrigin, handleApiError, jsonOk, readJson } from "@/lib/http";
 import { requireUser } from "@/server/auth";
 import { enforceRateLimit } from "@/server/rate-guard";
 import { setVote } from "@/server/deals";

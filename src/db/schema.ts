@@ -3,7 +3,6 @@ import {
   check,
   index,
   integer,
-  pk,
   sqliteTable,
   text,
   unique,
@@ -23,7 +22,7 @@ export const users = sqliteTable(
       .default("user"),
     createdAt: integer().notNull().default(now),
   },
-  (t) => [unique().on(t.email), pk({ columns: [t.id] })]
+  (t) => [unique().on(t.email)]
 );
 
 export const sessions = sqliteTable(
@@ -41,7 +40,6 @@ export const sessions = sqliteTable(
     unique().on(t.tokenHash),
     index("idx_sessions_user").on(t.userId),
     index("idx_sessions_expires").on(t.expiresAt),
-    pk({ columns: [t.id] }),
   ]
 );
 
@@ -195,7 +193,7 @@ export const reports = sqliteTable(
   },
   (t) => [
     unique("uq_report_user_deal").on(t.userId, t.dealId),
-    index("idx_reports_status").on(t.status, t.createdAt.desc()),
+    index("idx_reports_status").on(t.status, t.createdAt),
     index("idx_reports_deal").on(t.dealId),
   ]
 );

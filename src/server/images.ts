@@ -28,7 +28,8 @@ export interface ImageDetectResult {
 
 export function detectImageType(bytes: Buffer): ImageDetectResult | null {
   if (bytes.length < 12) return null;
-  return SIGNATURES.find((s) => s.test(bytes)) ?? null;
+  const match = SIGNATURES.find((s) => s.test(bytes));
+  return match ? { mime: match.mime, ext: match.ext } : null;
 }
 
 export function resolveUploadDir(): string {
