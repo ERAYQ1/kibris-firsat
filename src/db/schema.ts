@@ -118,7 +118,7 @@ export const deals = sqliteTable(
       "chk_status_valid",
       sql`${t.status} IN ('active','expired','reported','removed')`
     ),
-    index("idx_deals_status_created").on(t.status, t.createdAt.desc()),
+    index("idx_deals_status_created").on(t.status, t.createdAt),
     index("idx_deals_category").on(t.categoryId),
     index("idx_deals_location").on(t.locationId),
     index("idx_deals_store").on(t.storeId),
