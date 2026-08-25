@@ -1,6 +1,5 @@
 import React from "react";
 import Link from "next/link";
-import { Button } from "./Button";
 import { Sparkles } from "lucide-react";
 
 interface EmptyStateProps {
@@ -25,19 +24,24 @@ export function EmptyState({
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 shadow-2xs">
         {icon || <Sparkles className="h-7 w-7 text-amber-500" />}
       </div>
-      <h3 className="mt-4 text-base font-bold text-slate-900">{title}</h3>
+      <h3 className="mt-4 text-base font-bold text-slate-950">{title}</h3>
       <p className="mt-1.5 max-w-sm text-xs text-slate-500 leading-relaxed">{description}</p>
-      {(actionText && actionHref) && (
-        <Link href={actionHref} className="mt-5">
-          <Button variant="primary" size="sm">
-            {actionText}
-          </Button>
+      {actionText && actionHref && (
+        <Link
+          href={actionHref}
+          className="mt-5 inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 active:scale-95 transition"
+        >
+          {actionText}
         </Link>
       )}
-      {(actionText && onAction && !actionHref) && (
-        <Button variant="primary" size="sm" onClick={onAction} className="mt-5">
+      {actionText && onAction && !actionHref && (
+        <button
+          type="button"
+          onClick={onAction}
+          className="mt-5 inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 active:scale-95 transition cursor-pointer"
+        >
           {actionText}
-        </Button>
+        </button>
       )}
     </div>
   );

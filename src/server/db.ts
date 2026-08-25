@@ -8,8 +8,17 @@ export type Db = BetterSQLite3Database<typeof schema>;
 
 export function createDb(filePath: string): Db {
   const sqlite = new Database(filePath);
-  sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
+  sqlite.pragma("busy_timeout = 5000");
+  sqlite.pragma("temp_store = MEMORY");
+  sqlite.pragma("cache_size = -64000"); // 64 MB RAM cache
+
+  if (filePath !== ":memory:") {
+    sqlite.pragma("journal_mode = WAL");
+    sqlite.pragma("synchronous = NORMAL");
+    sqlite.pragma("mmap_size = 268435456"); // 256 MB memory-mapped I/O
+  }
+
   return drizzle(sqlite, { schema, casing: "snake_case" });
 }
 
