@@ -128,3 +128,10 @@ GitHub Issues (`ERAYQ1/kibris-firsat`). See `docs/agents/issue-tracker.md`.
 ### Domain docs
 Single-context (`src/`, `src/db/schema.ts`, `src/server/`). See `docs/agents/domain.md`.
 
+## MCP Servers (`.agents/mcp_config.json`, `mcp.json`)
+
+1. **GitHub MCP (`@modelcontextprotocol/server-github`)**: Repo inceleme, PR, issue ve dosya yönetimi.
+2. **Context7 MCP (`@upstash/context7-mcp`)**: Güncel framework (Next.js 15, React 19, Drizzle, Tailwind v4) dokümantasyonu çekme.
+3. **Playwright MCP (`@playwright/mcp@latest`)**: E2E tarayıcı otomasyonu, sayfa doğrulama ve UI testleri.
+
+
