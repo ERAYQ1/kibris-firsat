@@ -119,3 +119,12 @@ ANALYZE → PLAN → IMPLEMENT → TEST → REVIEW → FIX → VERIFY
 - [ ] Secret eklenmedi; gereksiz dependency eklenmedi
 - [ ] İlgisiz dosya değişmedi; `git status`/`git diff` kontrol edildi
 - [ ] Gerekliyse dokümantasyon güncellendi
+
+## Agent Skills
+
+### Issue tracker
+GitHub Issues (`ERAYQ1/kibris-firsat`). See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+Single-context (`src/`, `src/db/schema.ts`, `src/server/`). See `docs/agents/domain.md`.
+
