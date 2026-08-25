@@ -20,6 +20,11 @@ export const metadata: Metadata = {
     locale: "tr_TR",
     type: "website",
   },
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default async function RootLayout({

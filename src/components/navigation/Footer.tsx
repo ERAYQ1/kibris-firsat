@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Flame, ShieldCheck, Heart } from "lucide-react";
+import { ShieldCheck, Heart } from "lucide-react";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 export function Footer() {
   return (
@@ -7,11 +8,8 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
         {/* Kolon 1: Marka */}
         <div className="space-y-3">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950 text-white shadow-2xs">
-              <Flame className="h-4.5 w-4.5 fill-amber-500 text-amber-500" />
-            </span>
-            <span className="text-base font-black text-slate-950">Kıbrıs Fırsat</span>
+          <Link href="/" className="inline-block">
+            <BrandLogo size="md" />
           </Link>
           <p className="text-slate-500 leading-relaxed">
             Kuzey Kıbrıs genelindeki en güncel market, restoran, elektronik ve hizmet fırsatlarını

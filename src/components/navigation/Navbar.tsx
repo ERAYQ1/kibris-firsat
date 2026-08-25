@@ -7,8 +7,8 @@ import type { PublicUser } from "@/server/auth";
 import { SearchModal } from "@/components/search/SearchModal";
 import { NotificationBell } from "@/components/NotificationBell";
 import { LogoutButton } from "@/components/LogoutButton";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import {
-  Flame,
   Search,
   Heart,
   Plus,
@@ -57,18 +57,8 @@ export function Navbar({ currentUser }: NavbarProps) {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 py-2.5">
           {/* Sol: Logo & Navigasyon Menüleri */}
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2.5 group shrink-0">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-white shadow-xs transition group-hover:scale-105">
-                <Flame className="h-5 w-5 fill-amber-500 text-amber-500" />
-              </span>
-              <div className="flex flex-col">
-                <span className="text-base font-black tracking-tight text-slate-950 leading-tight">
-                  Kıbrıs Fırsat
-                </span>
-                <span className="text-[10px] font-bold text-amber-700 tracking-wider uppercase">
-                  Pazaryeri & Keşif
-                </span>
-              </div>
+            <Link href="/" className="shrink-0">
+              <BrandLogo size="md" />
             </Link>
 
             {/* Desktop Nav Linkleri */}
