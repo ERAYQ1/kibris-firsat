@@ -34,6 +34,7 @@ export const dealCreateSchema = z
     title: z.string().trim().min(5, "Başlık en az 5 karakter olmalı.").max(120),
     description: z.string().trim().max(2000).optional().or(z.literal("")),
     price: priceSchema,
+    originalPrice: priceSchema.optional().or(z.literal("")),
     currency: z.enum(CURRENCIES),
     categoryId: z.coerce.number().int().positive(),
     locationId: z.coerce.number().int().positive(),
@@ -44,6 +45,16 @@ export const dealCreateSchema = z
       .optional()
       .nullable()
       .or(z.literal("")),
+  })
+  .strict();
+
+export const commentCreateSchema = z
+  .object({
+    content: z
+      .string()
+      .trim()
+      .min(2, "Yorum en az 2 karakter olmalı.")
+      .max(1000, "Yorum en fazla 1000 karakter olabilir."),
   })
   .strict();
 
@@ -67,3 +78,4 @@ export function parsePriceToCents(input: string): number {
 }
 
 export type DealCreateInput = z.infer<typeof dealCreateSchema>;
+export type CommentCreateInput = z.infer<typeof commentCreateSchema>;

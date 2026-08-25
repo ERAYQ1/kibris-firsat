@@ -93,6 +93,7 @@ export const deals = sqliteTable(
     title: text({ length: 120 }).notNull(),
     description: text({ length: 2000 }),
     priceCents: integer().notNull(),
+    originalPriceCents: integer(),
     currency: text({ enum: ["TRY", "GBP", "EUR"] }).notNull(),
     categoryId: integer()
       .notNull()
@@ -212,6 +213,30 @@ export const priceEntries = sqliteTable(
   (t) => [index("idx_price_entries_deal").on(t.dealId, t.recordedAt)]
 );
 
+export const comments = sqliteTable(
+  "comments",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    dealId: integer()
+      .notNull()
+      .references(() => deals.id, { onDelete: "cascade" }),
+    userId: integer()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text({ length: 1000 }).notNull(),
+    createdAt: integer().notNull().default(now),
+  },
+  (t) => [
+    index("idx_comments_deal").on(t.dealId, t.createdAt),
+    index("idx_comments_user").on(t.userId),
+  ]
+);
+
+export const commentRelations = relations(comments, ({ one }) => ({
+  deal: one(deals, { fields: [comments.dealId], references: [deals.id] }),
+  author: one(users, { fields: [comments.userId], references: [users.id] }),
+}));
+
 export const dealRelations = relations(deals, ({ one, many }) => ({
   author: one(users, { fields: [deals.authorId], references: [users.id] }),
   category: one(categories, {
@@ -224,8 +249,10 @@ export const dealRelations = relations(deals, ({ one, many }) => ({
   }),
   store: one(stores, { fields: [deals.storeId], references: [stores.id] }),
   images: many(dealImages),
+  comments: many(comments),
 }));
 
 export type User = typeof users.$inferSelect;
 export type Deal = typeof deals.$inferSelect;
 export type Report = typeof reports.$inferSelect;
+export type Comment = typeof comments.$inferSelect;

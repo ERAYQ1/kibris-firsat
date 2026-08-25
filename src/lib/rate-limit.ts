@@ -55,4 +55,6 @@ export const RATE_LIMITS = {
   vote: { limit: 120, windowMs: 60 * 60_000 },
   report: { limit: 30, windowMs: 60 * 60_000 },
   upload: { limit: 40, windowMs: 60 * 60_000 },
+  commentCreate: { limit: 60, windowMs: 60 * 60_000 },
+  commentDelete: { limit: 60, windowMs: 60 * 60_000 },
 } as const;

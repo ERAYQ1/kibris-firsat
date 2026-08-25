@@ -1,76 +1,34 @@
-# Dependencies
+# dependencies
 node_modules/
-.pnp
-.pnp.js
 
-# Build output
+# build output
 .next/
 out/
-build/
-dist/
 *.tsbuildinfo
 next-env.d.ts
 
-# Environment variables & secrets
+# env & secrets
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
 .env.*.local
-*.pem
-*.key
-*.cert
-*.crt
 
-# Database & Runtime data
+# database & uploads
 data/
-*.db
-*.db-journal
-*.db-shm
-*.db-wal
-*.sqlite
-*.sqlite3
 
-# Uploaded assets (runtime)
-public/uploads/
-uploads/
-
-# Testing & Coverage
-coverage/
-.nyc_output/
-
-# Logs
+# logs
 logs/
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 
-# OS specific files
+# os
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# IDE & Editor files
+# ide
 .idea/
 .vscode/
 *.swp
-*.swo
-*.swn
-.project
-.settings/
 
-# Temp & Cache
+# temp
 tmp/
-temp/
 *.pid
-*.seed
-*.pid.lock
-.turbo/
-.vercel/

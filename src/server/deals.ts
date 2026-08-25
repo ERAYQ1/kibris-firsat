@@ -20,6 +20,7 @@ export interface DealListItem {
   id: number;
   title: string;
   priceCents: number;
+  originalPriceCents: number | null;
   currency: "TRY" | "GBP" | "EUR";
   status: "active" | "expired" | "reported" | "removed";
   createdAt: number;
@@ -36,7 +37,7 @@ export interface DealListOptions {
   q?: string;
   categorySlug?: string;
   locationSlug?: string;
-  sort?: "newest" | "top";
+  sort?: "newest" | "top" | "hot" | "discount";
   includeInactive?: boolean;
   page?: number;
   pageSize?: number;
@@ -55,6 +56,7 @@ function listQuery(database: Db) {
       id: deals.id,
       title: deals.title,
       priceCents: deals.priceCents,
+      originalPriceCents: deals.originalPriceCents,
       currency: deals.currency,
       status: deals.status,
       createdAt: deals.createdAt,
@@ -98,10 +100,19 @@ export async function listDeals(
   if (options.locationSlug) conditions.push(eq(locations.slug, options.locationSlug));
 
   const where = conditions.length ? and(...conditions) : undefined;
-  const orderBy =
-    options.sort === "top"
-      ? [desc(scoreSubquery), desc(deals.createdAt)]
-      : [desc(deals.createdAt)];
+  let orderBy;
+  if (options.sort === "top" || options.sort === "hot") {
+    orderBy = [desc(scoreSubquery), desc(deals.createdAt)];
+  } else if (options.sort === "discount") {
+    orderBy = [
+      desc(
+        sql`COALESCE((${deals.originalPriceCents} - ${deals.priceCents}) * 100 / ${deals.originalPriceCents}, 0)`
+      ),
+      desc(deals.createdAt),
+    ];
+  } else {
+    orderBy = [desc(deals.createdAt)];
+  }
 
   const rows = await listQuery(database)
     .where(where)
@@ -167,6 +178,14 @@ export async function createDeal(
   const priceCents = parsePriceToCents(data.price);
   if (priceCents <= 0) throw Errors.validation("Fiyat sıfırdan büyük olmalı.");
 
+  let originalPriceCents: number | null = null;
+  if (data.originalPrice) {
+    originalPriceCents = parsePriceToCents(data.originalPrice);
+    if (originalPriceCents <= priceCents) {
+      throw Errors.validation("Eski fiyat, indirimli fiyattan büyük olmalıdır.");
+    }
+  }
+
   let expiresAt: number | null = null;
   if (data.expiresAt) {
     const ts = Math.floor(new Date(data.expiresAt).getTime() / 1000);
@@ -212,6 +231,7 @@ export async function createDeal(
       title: data.title,
       description: data.description || null,
       priceCents,
+      originalPriceCents,
       currency: data.currency,
       categoryId: data.categoryId,
       locationId: data.locationId,

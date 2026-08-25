@@ -60,6 +60,31 @@ describe("deal creation", () => {
     expect(getDealDetail(id, db).priceHistory).toHaveLength(1);
   });
 
+  it("eski fiyat belirtildiğinde kaydedilir ve indirim oranı hesaplanabilir", async () => {
+    const user = await makeUser(db);
+    const ids = await seedCategoryAndLocation(db);
+    const { id } = await createDeal(
+      { ...baseDeal, price: "99.90", originalPrice: "149.90", ...dealIds(ids) },
+      user,
+      db
+    );
+    const detail = getDealDetail(id, db);
+    expect(detail.deal.priceCents).toBe(9990);
+    expect(detail.deal.originalPriceCents).toBe(14990);
+  });
+
+  it("eski fiyat indirimli fiyattan küçük veya eşitse reddedilir", async () => {
+    const user = await makeUser(db);
+    const ids = await seedCategoryAndLocation(db);
+    await expect(
+      createDeal(
+        { ...baseDeal, price: "100.00", originalPrice: "90.00", ...dealIds(ids) },
+        user,
+        db
+      )
+    ).rejects.toThrow();
+  });
+
   it("virgüllü fiyat kabul edilir", async () => {
     const user = await makeUser(db);
     const ids = await seedCategoryAndLocation(db);
