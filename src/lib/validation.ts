@@ -39,6 +39,8 @@ export const dealCreateSchema = z
     categoryId: z.coerce.number().int().positive(),
     locationId: z.coerce.number().int().positive(),
     storeName: z.string().trim().min(2, "Mağaza adı en az 2 karakter olmalı.").max(80),
+    couponCode: z.string().trim().max(50).optional().or(z.literal("")),
+    couponDiscount: z.string().trim().max(50).optional().or(z.literal("")),
     imageFilenames: z
       .array(z.string().regex(/^[a-f0-9-]+\.(jpg|jpeg|png|webp)$/i))
       .max(5)
@@ -49,6 +51,12 @@ export const dealCreateSchema = z
       .optional()
       .nullable()
       .or(z.literal("")),
+  })
+  .strict();
+
+export const priceAlertSchema = z
+  .object({
+    targetPrice: priceSchema,
   })
   .strict();
 

@@ -13,6 +13,8 @@ import { ShareButtons } from "@/components/ShareButtons";
 import { DealPrice } from "@/components/deals/DealPrice";
 import { DealGallery } from "@/components/deals/DealGallery";
 import { LiveCountdown } from "@/components/deals/LiveCountdown";
+import { CouponBadge } from "@/components/deals/CouponBadge";
+import { PriceAlertButton } from "@/components/deals/PriceAlertButton";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { DealCard } from "@/components/DealCard";
 import {
@@ -226,6 +228,14 @@ export default async function DealDetailPage({ params }: Props) {
               {deal.title}
             </h1>
 
+            {/* Kupon Kodu Alanı (Varsa) */}
+            {deal.couponCode && (
+              <CouponBadge
+                code={deal.couponCode}
+                discountDescription={deal.couponDiscount}
+              />
+            )}
+
             {/* Büyük Fiyat & Aksiyon Alanı */}
             <div className="rounded-2xl bg-slate-50 p-5 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <DealPrice
@@ -235,13 +245,21 @@ export default async function DealDetailPage({ params }: Props) {
                 size="xl"
               />
 
-              <Link
-                href={`/magaza/${deal.storeId}`}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-6 py-3 text-xs font-bold text-white shadow-sm hover:bg-slate-800 active:scale-95 transition"
-              >
-                <span>Mağazaya Git</span>
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Link>
+              <div className="flex items-center gap-2">
+                <PriceAlertButton
+                  dealId={deal.id}
+                  currentPriceCents={deal.priceCents}
+                  currency={deal.currency}
+                />
+
+                <Link
+                  href={`/magaza/${deal.storeId}`}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-slate-800 active:scale-95 transition"
+                >
+                  <span>Mağazaya Git</span>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </div>
 
             {/* Açıklama */}

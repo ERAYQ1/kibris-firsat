@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Heart, User, Plus } from "lucide-react";
+import { Home, MapPin, Heart, User, Plus } from "lucide-react";
 
 export function MobileBottomNav() {
   const pathname = usePathname();
 
   const navItems = [
     { label: "Keşfet", href: "/", icon: Home },
-    { label: "Favoriler", href: "/favoriler", icon: Heart },
+    { label: "Harita", href: "/harita", icon: MapPin },
     { label: "Paylaş", href: "/firsat/yeni", icon: Plus, isAction: true },
+    { label: "Favoriler", href: "/favoriler", icon: Heart },
     { label: "Profilim", href: "/profil", icon: User },
   ];
 

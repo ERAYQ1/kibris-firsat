@@ -3,6 +3,7 @@ import {
   check,
   index,
   integer,
+  real,
   sqliteTable,
   text,
   unique,
@@ -80,6 +81,8 @@ export const stores = sqliteTable(
       .references(() => locations.id, { onDelete: "restrict" }),
     phone: text({ length: 30 }),
     address: text({ length: 200 }),
+    latitude: real(),
+    longitude: real(),
     isVerified: integer().notNull().default(0),
     createdAt: integer().notNull().default(now),
   },
@@ -115,6 +118,8 @@ export const deals = sqliteTable(
     })
       .notNull()
       .default("active"),
+    couponCode: text({ length: 50 }),
+    couponDiscount: text({ length: 50 }),
     viewCount: integer().notNull().default(0),
     tags: text({ length: 200 }),
     contactInfo: text({ length: 100 }),
@@ -191,6 +196,28 @@ export const favorites = sqliteTable(
     unique("uq_favorite_user_deal").on(t.userId, t.dealId),
     index("idx_favorites_user").on(t.userId),
     index("idx_favorites_deal").on(t.dealId),
+  ]
+);
+
+export const priceAlerts = sqliteTable(
+  "price_alerts",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    userId: integer()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    dealId: integer()
+      .notNull()
+      .references(() => deals.id, { onDelete: "cascade" }),
+    targetPriceCents: integer().notNull(),
+    isTriggered: integer().notNull().default(0),
+    createdAt: integer().notNull().default(now),
+  },
+  (t) => [
+    unique("uq_price_alert_user_deal").on(t.userId, t.dealId),
+    index("idx_price_alerts_user").on(t.userId),
+    index("idx_price_alerts_deal").on(t.dealId),
+    check("chk_target_price_positive", sql`${t.targetPriceCents} > 0`),
   ]
 );
 
@@ -303,6 +330,7 @@ export const priceEntries = sqliteTable(
 export const userRelations = relations(users, ({ many }) => ({
   deals: many(deals),
   favorites: many(favorites),
+  priceAlerts: many(priceAlerts),
   notifications: many(notifications),
   comments: many(comments),
 }));
@@ -321,6 +349,7 @@ export const dealRelations = relations(deals, ({ one, many }) => ({
   images: many(dealImages),
   comments: many(comments),
   favorites: many(favorites),
+  priceAlerts: many(priceAlerts),
   verifications: many(dealVerifications),
 }));
 
@@ -332,6 +361,11 @@ export const storeRelations = relations(stores, ({ one, many }) => ({
 export const favoriteRelations = relations(favorites, ({ one }) => ({
   user: one(users, { fields: [favorites.userId], references: [users.id] }),
   deal: one(deals, { fields: [favorites.dealId], references: [deals.id] }),
+}));
+
+export const priceAlertRelations = relations(priceAlerts, ({ one }) => ({
+  user: one(users, { fields: [priceAlerts.userId], references: [users.id] }),
+  deal: one(deals, { fields: [priceAlerts.dealId], references: [deals.id] }),
 }));
 
 export const notificationRelations = relations(notifications, ({ one }) => ({
@@ -348,5 +382,6 @@ export type Deal = typeof deals.$inferSelect;
 export type Report = typeof reports.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type Favorite = typeof favorites.$inferSelect;
+export type PriceAlert = typeof priceAlerts.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type Store = typeof stores.$inferSelect;

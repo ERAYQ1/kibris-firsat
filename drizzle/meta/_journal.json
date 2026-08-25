@@ -22,6 +22,13 @@
       "when": 1787636156197,
       "tag": "0002_lean_sentinels",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787641394249,
+      "tag": "0003_nifty_nextwave",
+      "breakpoints": true
     }
   ]
 }

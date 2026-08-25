@@ -75,6 +75,18 @@ export function Navbar({ currentUser }: NavbarProps) {
                 Fırsatları Keşfet
               </Link>
 
+              <Link
+                href="/harita"
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  pathname === "/harita"
+                    ? "bg-slate-100 text-slate-950"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+                }`}
+              >
+                <MapPin className="h-3.5 w-3.5 text-amber-600" />
+                Harita
+              </Link>
+
               {/* Kategoriler Açılır Menüsü */}
               <div
                 className="relative"

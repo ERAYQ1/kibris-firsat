@@ -28,6 +28,7 @@ import { Errors } from "@/lib/errors";
 import type { PublicUser } from "@/server/auth";
 import { dealCreateSchema, parsePriceToCents } from "@/lib/validation";
 import type { ReportReason } from "@/lib/report-reasons";
+import { checkAndTriggerPriceAlerts } from "@/server/alerts";
 
 export interface DealListItem {
   id: number;
@@ -38,6 +39,8 @@ export interface DealListItem {
   status: "active" | "expired" | "sold_out" | "hidden" | "rejected" | "reported" | "removed";
   viewCount: number;
   isVerified: boolean;
+  couponCode?: string | null;
+  couponDiscount?: string | null;
   tags: string | null;
   createdAt: number;
   expiresAt: number | null;
@@ -96,6 +99,8 @@ function listQuery(database: Db) {
       status: deals.status,
       viewCount: deals.viewCount,
       isVerified: deals.isVerified,
+      couponCode: deals.couponCode,
+      couponDiscount: deals.couponDiscount,
       tags: deals.tags,
       createdAt: deals.createdAt,
       expiresAt: deals.expiresAt,
@@ -330,6 +335,8 @@ export async function createDeal(
       categoryId: data.categoryId,
       locationId: data.locationId,
       storeId: store.id,
+      couponCode: data.couponCode?.trim() || null,
+      couponDiscount: data.couponDiscount?.trim() || null,
       expiresAt,
     })
     .returning({ id: deals.id })
@@ -634,6 +641,49 @@ export async function deleteDeal(
   }
 
   database.delete(deals).where(eq(deals.id, dealId)).run();
+}
+
+export async function updateDealPrice(
+  dealId: number,
+  newPriceCents: number,
+  user: PublicUser,
+  database: Db = getDb()
+): Promise<{ dealId: number; newPriceCents: number; triggeredAlertsCount: number }> {
+  if (!Number.isInteger(dealId) || dealId <= 0) throw Errors.badRequest("Geçersiz fırsat.");
+  if (newPriceCents <= 0) throw Errors.validation("Fiyat sıfırdan büyük olmalıdır.");
+
+  const deal = database.select().from(deals).where(eq(deals.id, dealId)).get();
+  if (!deal) throw Errors.notFound("Fırsat");
+
+  if (user.role !== "admin" && deal.authorId !== user.id) {
+    throw Errors.forbidden();
+  }
+
+  database
+    .update(deals)
+    .set({
+      priceCents: newPriceCents,
+      updatedAt: sql`(unixepoch())`,
+    })
+    .where(eq(deals.id, dealId))
+    .run();
+
+  database
+    .insert(priceEntries)
+    .values({
+      dealId,
+      priceCents: newPriceCents,
+      currency: deal.currency,
+    })
+    .run();
+
+  const triggeredCount = checkAndTriggerPriceAlerts(dealId, newPriceCents, database);
+
+  return {
+    dealId,
+    newPriceCents,
+    triggeredAlertsCount: triggeredCount,
+  };
 }
 
 export type ReportWithMeta = AdminReportItem;

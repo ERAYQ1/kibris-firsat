@@ -3,6 +3,7 @@ import type { DealListItem } from "@/server/deals";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { DealPrice } from "@/components/deals/DealPrice";
 import { LiveCountdown } from "@/components/deals/LiveCountdown";
+import { CouponBadge } from "@/components/deals/CouponBadge";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import {
   MapPin,
@@ -151,6 +152,13 @@ export function DealCard({ deal }: DealCardProps) {
               {deal.title}
             </h3>
           </Link>
+
+          {/* Kupon Kodu (Varsa) */}
+          {deal.couponCode && (
+            <div className="pt-0.5">
+              <CouponBadge code={deal.couponCode} variant="compact" />
+            </div>
+          )}
 
           {/* Fiyat Alanı */}
           <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between">

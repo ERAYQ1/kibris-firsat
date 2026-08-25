@@ -57,17 +57,17 @@ sqlite
   )
   .run("admin@kibrisfirsat.com", passwordHash, "Kıbrıs Editör", "admin");
 
-// Mağazalar
+// Mağazalar ve Kıbrıs Koordinatları
 const storeList = [
-  { name: "Erülkü Süpermarket", normalized: "erulku supermarket", locationSlug: "lefkosa", phone: "0392 232 40 00", address: "Lefkoşa - Gazimağusa Anayolu, Demirhan", isVerified: 1 },
-  { name: "Lemar Market (Ortaköy)", normalized: "lemar market ortakoy", locationSlug: "lefkosa", phone: "0392 223 66 00", address: "Ali Rıza Efendi Cad., Ortaköy, Lefkoşa", isVerified: 1 },
-  { name: "Şokmar Girne", normalized: "sokmar girne", locationSlug: "girne", phone: "0392 815 12 34", address: "Karaoğlanoğlu Cad., Girne", isVerified: 1 },
-  { name: "Eziç Premier Restoran", normalized: "ezic premier restoran", locationSlug: "girne", phone: "0392 815 88 88", address: "Uğur Mumcu Cad., Girne", isVerified: 1 },
-  { name: "Önder AVM Mağusa", normalized: "onder avm magusa", locationSlug: "gazimagusa", phone: "0392 366 50 50", address: "İsmet İnönü Bulvarı, Gazimağusa", isVerified: 1 },
-  { name: "Gloria Jean's Coffees", normalized: "gloria jeans coffees", locationSlug: "lefkosa", phone: "0392 228 10 10", address: "Mehmet Akif Cad. (Dereboyu), Lefkoşa", isVerified: 1 },
-  { name: "Starling Süpermarket", normalized: "starling supermarket", locationSlug: "girne", phone: "0392 822 30 00", address: "Alsancak, Girne", isVerified: 1 },
-  { name: "Sharaf Store Elektronik", normalized: "sharaf store elektronik", locationSlug: "lefkosa", phone: "0392 444 80 08", address: "Bedrettin Demirel Cad., Lefkoşa", isVerified: 1 },
-  { name: "Mr. Pound Cyprus", normalized: "mr pound cyprus", locationSlug: "lefkosa", phone: "0392 223 99 99", address: "Taşkınköy, Lefkoşa", isVerified: 0 },
+  { name: "Erülkü Süpermarket", normalized: "erulku supermarket", locationSlug: "lefkosa", phone: "0392 232 40 00", address: "Lefkoşa - Gazimağusa Anayolu, Demirhan", latitude: 35.1950, longitude: 33.4800, isVerified: 1 },
+  { name: "Lemar Market (Ortaköy)", normalized: "lemar market ortakoy", locationSlug: "lefkosa", phone: "0392 223 66 00", address: "Ali Rıza Efendi Cad., Ortaköy, Lefkoşa", latitude: 35.1980, longitude: 33.3450, isVerified: 1 },
+  { name: "Şokmar Girne", normalized: "sokmar girne", locationSlug: "girne", phone: "0392 815 12 34", address: "Karaoğlanoğlu Cad., Girne", latitude: 35.3400, longitude: 33.2950, isVerified: 1 },
+  { name: "Eziç Premier Restoran", normalized: "ezic premier restoran", locationSlug: "girne", phone: "0392 815 88 88", address: "Uğur Mumcu Cad., Girne", latitude: 35.3350, longitude: 33.3250, isVerified: 1 },
+  { name: "Önder AVM Mağusa", normalized: "onder avm magusa", locationSlug: "gazimagusa", phone: "0392 366 50 50", address: "İsmet İnönü Bulvarı, Gazimağusa", latitude: 35.1290, longitude: 33.9350, isVerified: 1 },
+  { name: "Gloria Jean's Coffees", normalized: "gloria jeans coffees", locationSlug: "lefkosa", phone: "0392 228 10 10", address: "Mehmet Akif Cad. (Dereboyu), Lefkoşa", latitude: 35.1920, longitude: 33.3510, isVerified: 1 },
+  { name: "Starling Süpermarket", normalized: "starling supermarket", locationSlug: "girne", phone: "0392 822 30 00", address: "Alsancak, Girne", latitude: 35.3480, longitude: 33.2100, isVerified: 1 },
+  { name: "Sharaf Store Elektronik", normalized: "sharaf store elektronik", locationSlug: "lefkosa", phone: "0392 444 80 08", address: "Bedrettin Demirel Cad., Lefkoşa", latitude: 35.1900, longitude: 33.3600, isVerified: 1 },
+  { name: "Mr. Pound Cyprus", normalized: "mr pound cyprus", locationSlug: "lefkosa", phone: "0392 223 99 99", address: "Taşkınköy, Lefkoşa", latitude: 35.2050, longitude: 33.3650, isVerified: 0 },
 ];
 
 for (const s of storeList) {
@@ -75,11 +75,11 @@ for (const s of storeList) {
   if (loc) {
     sqlite
       .prepare(
-        `INSERT INTO stores (name, normalized_name, location_id, phone, address, is_verified) 
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT(normalized_name, location_id) DO UPDATE SET phone=excluded.phone, address=excluded.address, is_verified=excluded.is_verified`
+        `INSERT INTO stores (name, normalized_name, location_id, phone, address, latitude, longitude, is_verified) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(normalized_name, location_id) DO UPDATE SET phone=excluded.phone, address=excluded.address, latitude=excluded.latitude, longitude=excluded.longitude, is_verified=excluded.is_verified`
       )
-      .run(s.name, s.normalized, loc.id, s.phone, s.address, s.isVerified);
+      .run(s.name, s.normalized, loc.id, s.phone, s.address, s.latitude, s.longitude, s.isVerified);
   }
 }
 
@@ -94,6 +94,8 @@ const sampleDeals = [
     categorySlug: "market",
     locationSlug: "lefkosa",
     storeName: "Erülkü Süpermarket",
+    couponCode: "ERULKU10",
+    couponDiscount: "Ekstra %10 İndirim",
     isVerified: 1,
     viewCount: 420,
     expiresAt: Math.floor(Date.now() / 1000) + 3 * 86400,
@@ -107,6 +109,8 @@ const sampleDeals = [
     categorySlug: "market",
     locationSlug: "lefkosa",
     storeName: "Lemar Market (Ortaköy)",
+    couponCode: null,
+    couponDiscount: null,
     isVerified: 1,
     viewCount: 310,
     expiresAt: Math.floor(Date.now() / 1000) + 5 * 86400,
@@ -120,6 +124,8 @@ const sampleDeals = [
     categorySlug: "elektronik",
     locationSlug: "lefkosa",
     storeName: "Sharaf Store Elektronik",
+    couponCode: "SHARAF250",
+    couponDiscount: "₺250 Sepet İndirimi",
     isVerified: 1,
     viewCount: 1250,
     expiresAt: Math.floor(Date.now() / 1000) + 4 * 86400,
@@ -133,6 +139,8 @@ const sampleDeals = [
     categorySlug: "restoran-kafe",
     locationSlug: "girne",
     storeName: "Eziç Premier Restoran",
+    couponCode: "EZICMENUFIRSAT",
+    couponDiscount: "Patates Boy Büyütme Bedava",
     isVerified: 1,
     viewCount: 540,
     expiresAt: Math.floor(Date.now() / 1000) + 7 * 86400,
@@ -146,6 +154,8 @@ const sampleDeals = [
     categorySlug: "restoran-kafe",
     locationSlug: "lefkosa",
     storeName: "Gloria Jean's Coffees",
+    couponCode: null,
+    couponDiscount: null,
     isVerified: 1,
     viewCount: 290,
     expiresAt: Math.floor(Date.now() / 1000) + 10 * 86400,
@@ -159,6 +169,8 @@ const sampleDeals = [
     categorySlug: "market",
     locationSlug: "girne",
     storeName: "Starling Süpermarket",
+    couponCode: null,
+    couponDiscount: null,
     isVerified: 0,
     viewCount: 180,
     expiresAt: Math.floor(Date.now() / 1000) + 2 * 86400,
@@ -172,63 +184,81 @@ const sampleDeals = [
     categorySlug: "ev-yasam",
     locationSlug: "gazimagusa",
     storeName: "Önder AVM Mağusa",
+    couponCode: "ONDER15",
+    couponDiscount: "₺15 İndirim",
     isVerified: 1,
     viewCount: 220,
     expiresAt: Math.floor(Date.now() / 1000) + 8 * 86400,
   },
   {
     title: "Şokmar Girne Mangal Kömürü 5 KG",
-    description: "Hafta sonu mangal keyfi için özel parti meşe kömürü indirimi.",
+    description: "Hafta sonu mangal fırsatı, tüm Girne şubelerinde geçerli.",
     priceCents: 9900,
     originalPriceCents: 14500,
     currency: "TRY",
     categorySlug: "market",
     locationSlug: "girne",
     storeName: "Şokmar Girne",
+    couponCode: null,
+    couponDiscount: null,
     isVerified: 1,
     viewCount: 390,
     expiresAt: Math.floor(Date.now() / 1000) + 6 * 86400,
   },
 ];
 
-for (const d of sampleDeals) {
-  const cat = sqlite.prepare("SELECT id FROM categories WHERE slug = ?").get(d.categorySlug);
-  const loc = sqlite.prepare("SELECT id FROM locations WHERE slug = ?").get(d.locationSlug);
-  const st = sqlite.prepare("SELECT id FROM stores WHERE name = ?").get(d.storeName);
+for (const deal of sampleDeals) {
+  const cat = sqlite.prepare("SELECT id FROM categories WHERE slug = ?").get(deal.categorySlug);
+  const loc = sqlite.prepare("SELECT id FROM locations WHERE slug = ?").get(deal.locationSlug);
+  const store = sqlite
+    .prepare("SELECT id FROM stores WHERE name = ? AND location_id = ?")
+    .get(deal.storeName, loc ? loc.id : 1);
 
-  if (cat && loc && st) {
-    const existing = sqlite.prepare("SELECT id FROM deals WHERE title = ?").get(d.title);
-    if (!existing) {
-      const inserted = sqlite
-        .prepare(
-          `INSERT INTO deals (author_id, title, description, price_cents, original_price_cents, currency, category_id, location_id, store_id, status, is_verified, view_count, expires_at)
-           VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`
-        )
-        .run(
-          d.title,
-          d.description,
-          d.priceCents,
-          d.originalPriceCents,
-          d.currency,
-          cat.id,
-          loc.id,
-          st.id,
-          d.isVerified,
-          d.viewCount,
-          d.expiresAt
-        );
+  if (!cat || !loc || !store) continue;
 
-      sqlite
-        .prepare(
-          `INSERT INTO price_entries (deal_id, price_cents, currency) VALUES (?, ?, ?)`
-        )
-        .run(inserted.lastInsertRowid, d.priceCents, d.currency);
+  const existing = sqlite
+    .prepare("SELECT id FROM deals WHERE title = ? AND store_id = ?")
+    .get(deal.title, store.id);
 
-      sqlite
-        .prepare(`INSERT OR IGNORE INTO votes (deal_id, user_id, value) VALUES (?, 1, 1)`)
-        .run(inserted.lastInsertRowid);
-    }
+  if (!existing) {
+    const res = sqlite
+      .prepare(
+        `INSERT INTO deals (author_id, title, description, price_cents, original_price_cents, currency, category_id, location_id, store_id, coupon_code, coupon_discount, is_verified, view_count, expires_at)
+         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        deal.title,
+        deal.description,
+        deal.priceCents,
+        deal.originalPriceCents,
+        deal.currency,
+        cat.id,
+        loc.id,
+        store.id,
+        deal.couponCode,
+        deal.couponDiscount,
+        deal.isVerified,
+        deal.viewCount,
+        deal.expiresAt
+      );
+
+    sqlite
+      .prepare(
+        `INSERT INTO price_entries (deal_id, price_cents, currency) VALUES (?, ?, ?)`
+      )
+      .run(res.lastInsertRowid, deal.priceCents, deal.currency);
+
+    // Başlangıç oyu
+    sqlite
+      .prepare(`INSERT OR IGNORE INTO votes (deal_id, user_id, value) VALUES (?, 1, 1)`)
+      .run(res.lastInsertRowid);
+  } else {
+    sqlite
+      .prepare(
+        `UPDATE deals SET coupon_code = ?, coupon_discount = ? WHERE id = ?`
+      )
+      .run(deal.couponCode, deal.couponDiscount, existing.id);
   }
 }
 
-console.log("Seed başarıyla tamamlandı: 6 şehir, 10 kategori, 9 mağaza ve zengin Kıbrıs fırsatları hazır.");
+console.log("Kıbrıs Fırsat veritabanı tohumlandı (Kategoriler, Şehirler, Koordinatlı Mağazalar, Fırsatlar ve Kuponlar).");

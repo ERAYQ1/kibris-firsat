@@ -42,6 +42,8 @@ export function DealForm({ categories, locations }: Props) {
   const [storePhone, setStorePhone] = useState("");
   const [storeAddress, setStoreAddress] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponDiscount, setCouponDiscount] = useState("");
 
   // Files
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -139,6 +141,8 @@ export function DealForm({ categories, locations }: Props) {
         storeName: storeName.trim(),
         storePhone: storePhone.trim() || undefined,
         storeAddress: storeAddress.trim() || undefined,
+        couponCode: couponCode.trim() || undefined,
+        couponDiscount: couponDiscount.trim() || undefined,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
         imageFilenames: imageFilenames.length > 0 ? imageFilenames : undefined,
       };
@@ -318,6 +322,40 @@ export function DealForm({ categories, locations }: Props) {
                     ✓ Otomatik hesaplanan indirim: %{discountPercent} İndirim
                   </p>
                 )}
+              </div>
+
+              {/* Kupon Kodu (İsteğe bağlı) */}
+              <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50/50 p-4 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                  <Tag className="h-3.5 w-3.5 text-amber-600" />
+                  <span>İndirim Kuponu veya Promosyon Kodu (İsteğe bağlı)</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Kupon Kodu</label>
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      placeholder="Örn: INDIRIM20"
+                      maxLength={50}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 font-mono text-xs font-bold uppercase outline-none focus:border-slate-950"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Kupon Açıklaması / Avantajı</label>
+                    <input
+                      type="text"
+                      value={couponDiscount}
+                      onChange={(e) => setCouponDiscount(e.target.value)}
+                      placeholder="Örn: Sepette %10 İndirim"
+                      maxLength={50}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs outline-none focus:border-slate-950"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           )}

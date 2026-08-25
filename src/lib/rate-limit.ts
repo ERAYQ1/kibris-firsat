@@ -61,4 +61,5 @@ export const RATE_LIMITS = {
   verify: { limit: 60, windowMs: 60 * 60_000 },
   profileUpdate: { limit: 30, windowMs: 60 * 60_000 },
   notification: { limit: 60, windowMs: 60 * 60_000 },
+  alert: { limit: 60, windowMs: 60 * 60_000 },
 } as const;
