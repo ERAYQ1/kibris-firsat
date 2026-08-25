@@ -85,6 +85,23 @@ describe("deal creation", () => {
     ).rejects.toThrow();
   });
 
+  it("görsel dosya adları ile fırsat oluşturulduğunda dealImages tablosuna kaydedilir", async () => {
+    const user = await makeUser(db);
+    const ids = await seedCategoryAndLocation(db);
+    const { id } = await createDeal(
+      {
+        ...baseDeal,
+        imageFilenames: ["12345678-1234-1234-1234-123456789abc.jpg"],
+        ...dealIds(ids),
+      },
+      user,
+      db
+    );
+    const detail = getDealDetail(id, db);
+    expect(detail.images).toHaveLength(1);
+    expect(detail.images[0].filename).toBe("12345678-1234-1234-1234-123456789abc.jpg");
+  });
+
   it("virgüllü fiyat kabul edilir", async () => {
     const user = await makeUser(db);
     const ids = await seedCategoryAndLocation(db);

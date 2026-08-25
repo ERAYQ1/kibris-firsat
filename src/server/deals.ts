@@ -246,6 +246,19 @@ export async function createDeal(
     .values({ dealId: inserted.id, priceCents, currency: data.currency })
     .run();
 
+  if (data.imageFilenames && data.imageFilenames.length > 0) {
+    for (let i = 0; i < data.imageFilenames.length; i++) {
+      database
+        .insert(dealImages)
+        .values({
+          dealId: inserted.id,
+          filename: data.imageFilenames[i],
+          sortOrder: i,
+        })
+        .run();
+    }
+  }
+
   return { id: inserted.id };
 }
 

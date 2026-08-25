@@ -39,6 +39,10 @@ export const dealCreateSchema = z
     categoryId: z.coerce.number().int().positive(),
     locationId: z.coerce.number().int().positive(),
     storeName: z.string().trim().min(2, "Mağaza adı en az 2 karakter olmalı.").max(80),
+    imageFilenames: z
+      .array(z.string().regex(/^[a-f0-9-]+\.(jpg|jpeg|png|webp)$/i))
+      .max(5)
+      .optional(),
     expiresAt: z
       .string()
       .datetime({ offset: true })
