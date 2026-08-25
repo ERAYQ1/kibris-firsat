@@ -47,6 +47,7 @@ export interface DealListItem {
   locationSlug: string;
   storeName: string;
   score: number;
+  imageFilename?: string | null;
 }
 
 export interface DealListOptions {
@@ -67,6 +68,10 @@ const DEFAULT_PAGE_SIZE = 20;
 
 const scoreSubquery = sql<number>`(
   SELECT COALESCE(SUM(v.value), 0) FROM votes v WHERE v.deal_id = ${deals.id}
+)`;
+
+const primaryImageSubquery = sql<string | null>`(
+  SELECT di.filename FROM deal_images di WHERE di.deal_id = ${deals.id} ORDER BY di.sort_order ASC LIMIT 1
 )`;
 
 export function isDealActive(
@@ -100,6 +105,7 @@ function listQuery(database: Db) {
       locationSlug: locations.slug,
       storeName: stores.name,
       score: scoreSubquery.as("score"),
+      imageFilename: primaryImageSubquery.as("image_filename"),
     })
     .from(deals)
     .innerJoin(categories, eq(categories.id, deals.categoryId))

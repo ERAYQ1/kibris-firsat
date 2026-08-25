@@ -4,11 +4,71 @@ import { FavoriteButton } from "@/components/FavoriteButton";
 import { DealPrice } from "@/components/deals/DealPrice";
 import { LiveCountdown } from "@/components/deals/LiveCountdown";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
-import { MapPin, Store, Tag, Eye, Flame, ArrowUpRight } from "lucide-react";
+import {
+  MapPin,
+  Store,
+  Tag,
+  Eye,
+  Flame,
+  ArrowUpRight,
+  ShoppingBag,
+  UtensilsCrossed,
+  Laptop,
+  Shirt,
+  Sparkle,
+  Package,
+  Car,
+} from "lucide-react";
 
 interface DealCardProps {
   deal: DealListItem;
 }
+
+const CATEGORY_THEMES: Record<
+  string,
+  { bg: string; icon: React.ReactNode; text: string }
+> = {
+  market: {
+    bg: "from-emerald-50 to-emerald-100/70",
+    text: "text-emerald-700",
+    icon: <ShoppingBag className="h-10 w-10 text-emerald-600/70 stroke-[1.5]" />,
+  },
+  "restoran-kafe": {
+    bg: "from-amber-50 to-orange-100/70",
+    text: "text-amber-700",
+    icon: <UtensilsCrossed className="h-10 w-10 text-amber-600/70 stroke-[1.5]" />,
+  },
+  restoran: {
+    bg: "from-amber-50 to-orange-100/70",
+    text: "text-amber-700",
+    icon: <UtensilsCrossed className="h-10 w-10 text-amber-600/70 stroke-[1.5]" />,
+  },
+  elektronik: {
+    bg: "from-blue-50 to-indigo-100/70",
+    text: "text-blue-700",
+    icon: <Laptop className="h-10 w-10 text-blue-600/70 stroke-[1.5]" />,
+  },
+  giyim: {
+    bg: "from-purple-50 to-pink-100/70",
+    text: "text-purple-700",
+    icon: <Shirt className="h-10 w-10 text-purple-600/70 stroke-[1.5]" />,
+  },
+  kozmetik: {
+    bg: "from-rose-50 to-pink-100/70",
+    text: "text-rose-700",
+    icon: <Sparkle className="h-10 w-10 text-rose-600/70 stroke-[1.5]" />,
+  },
+  "ev-yasam": {
+    bg: "from-teal-50 to-cyan-100/70",
+    text: "text-teal-700",
+    icon: <Package className="h-10 w-10 text-teal-600/70 stroke-[1.5]" />,
+  },
+  otomotiv: {
+    bg: "from-slate-100 to-slate-200",
+    text: "text-slate-700",
+    icon: <Car className="h-10 w-10 text-slate-600/70 stroke-[1.5]" />,
+  },
+};
 
 export function DealCard({ deal }: DealCardProps) {
   const isHot = deal.score >= 5;
@@ -20,26 +80,45 @@ export function DealCard({ deal }: DealCardProps) {
     );
   }
 
+  const theme = CATEGORY_THEMES[deal.categorySlug] || {
+    bg: "from-slate-50 to-slate-100",
+    text: "text-slate-700",
+    icon: <Tag className="h-10 w-10 text-slate-400 stroke-[1.5]" />,
+  };
+
   return (
     <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/90 bg-white transition-all duration-200 hover:-translate-y-1 hover:border-slate-400 hover:shadow-lg">
       <div>
         {/* Üst Görsel Alanı (16:10 Oran) */}
         <div className="relative aspect-16/10 w-full overflow-hidden bg-slate-100 border-b border-slate-100">
           <Link href={`/firsat/${deal.id}`} className="block h-full w-full">
-            <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-slate-100 to-slate-200/80 text-slate-400 group-hover:scale-105 transition duration-300">
-              <Tag className="h-10 w-10 text-slate-300 stroke-[1.5]" />
-            </div>
+            {deal.imageFilename ? (
+              <img
+                src={`/api/images/${deal.imageFilename}`}
+                alt={deal.title}
+                className="h-full w-full object-cover group-hover:scale-105 transition duration-300"
+              />
+            ) : (
+              <div
+                className={`flex h-full w-full flex-col items-center justify-center bg-gradient-to-br ${theme.bg} p-4 transition duration-300 group-hover:scale-105`}
+              >
+                {theme.icon}
+                <span className={`mt-2 text-[11px] font-bold ${theme.text} uppercase tracking-wider`}>
+                  {deal.categoryName}
+                </span>
+              </div>
+            )}
           </Link>
 
-          {/* İndirim Rozeti (Sol Üst) */}
-          <div className="absolute left-3 top-3 flex flex-col gap-1.5 pointer-events-none">
+          {/* İndirim & Sıcak Rozetleri (Sol Üst) */}
+          <div className="absolute left-3 top-3 flex flex-col gap-1.5 pointer-events-none z-10">
             {discountPercent > 0 && (
               <span className="rounded-lg bg-rose-600 px-2 py-0.5 text-xs font-black text-white shadow-sm tracking-tight">
                 -%{discountPercent} İNDİRİM
               </span>
             )}
             {isHot && (
-              <span className="inline-flex items-center gap-1 rounded-lg bg-amber-500/90 backdrop-blur-xs px-2 py-0.5 text-[11px] font-black text-slate-950 shadow-sm">
+              <span className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-2 py-0.5 text-[11px] font-black text-slate-950 shadow-sm">
                 <Flame className="h-3 w-3 fill-slate-950 text-slate-950" />
                 Sıcak Fırsat
               </span>
@@ -47,7 +126,7 @@ export function DealCard({ deal }: DealCardProps) {
           </div>
 
           {/* Favori Butonu (Sağ Üst) */}
-          <div className="absolute right-3 top-3 z-10">
+          <div className="absolute right-3 top-3 z-20">
             <FavoriteButton dealId={deal.id} />
           </div>
         </div>
@@ -97,7 +176,7 @@ export function DealCard({ deal }: DealCardProps) {
         <LiveCountdown expiresAt={deal.expiresAt} status={deal.status} />
 
         <div className="flex items-center gap-2.5 text-[11px] font-medium">
-          <span className="inline-flex items-center gap-1 text-slate-400">
+          <span className="inline-flex items-center gap-1 text-slate-400" title="Görüntülenme">
             <Eye className="h-3 w-3" />
             {deal.viewCount}
           </span>
@@ -109,6 +188,7 @@ export function DealCard({ deal }: DealCardProps) {
                 ? "bg-rose-50 text-rose-700 border border-rose-200/60"
                 : "bg-slate-100 text-slate-600"
             }`}
+            title="Topluluk Skoru"
           >
             {deal.score > 0 ? `+${deal.score}` : deal.score}
           </span>
