@@ -7,15 +7,13 @@ import { CURRENCIES } from "@/lib/currency";
 import { toast } from "sonner";
 import {
   Tag,
-  MapPin,
   Store,
-  Calendar,
-  FileText,
-  Banknote,
   Sparkles,
   UploadCloud,
   X,
-  Image as ImageIcon,
+  ArrowRight,
+  ArrowLeft,
+  Check,
 } from "lucide-react";
 
 interface Props {
@@ -26,10 +24,39 @@ interface Props {
 export function DealForm({ categories, locations }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [error, setError] = useState<string | null>(null);
+
+  // Form State
+  const [currentStep, setCurrentStep] = useState(1);
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Live fields
+  const [title, setTitle] = useState("");
+  const [categoryId, setCategoryId] = useState<number>(categories[0]?.id || 1);
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
+  const [originalPrice, setOriginalPrice] = useState("");
+  const [currency, setCurrency] = useState<"TRY" | "GBP" | "EUR">("TRY");
+  const [locationId, setLocationId] = useState<number>(locations[0]?.id || 1);
+  const [storeName, setStoreName] = useState("");
+  const [storePhone, setStorePhone] = useState("");
+  const [storeAddress, setStoreAddress] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+
+  // Files
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+
+  // Calculations
+  const numPrice = Number.parseFloat(price) || 0;
+  const numOrig = Number.parseFloat(originalPrice) || 0;
+  let discountPercent = 0;
+  if (numOrig > numPrice && numPrice > 0) {
+    discountPercent = Math.round(((numOrig - numPrice) / numOrig) * 100);
+  }
+
+  const selectedCategory = categories.find((c) => c.id === Number(categoryId));
+  const selectedLocation = locations.find((l) => l.id === Number(locationId));
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -60,17 +87,26 @@ export function DealForm({ categories, locations }: Props) {
     setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!title.trim() || title.length < 3) {
+      toast.error("Lütfen geçerli bir başlık girin.");
+      return;
+    }
+    if (!price || numPrice <= 0) {
+      toast.error("Lütfen geçerli bir fiyat girin.");
+      return;
+    }
+    if (!storeName.trim()) {
+      toast.error("Lütfen mağaza/işletme adı girin.");
+      return;
+    }
+
     setPending(true);
     setError(null);
 
-    const form = new FormData(e.currentTarget);
-    const expiresRaw = String(form.get("expiresAt") ?? "");
-    const originalPriceRaw = String(form.get("originalPrice") ?? "");
-
     try {
-      // 1. Görseller varsa önce /api/uploads'a yükle
+      // 1. Fotoğrafları yükle
       const imageFilenames: string[] = [];
       if (selectedFiles.length > 0) {
         for (const file of selectedFiles) {
@@ -91,18 +127,20 @@ export function DealForm({ categories, locations }: Props) {
         }
       }
 
-      // 2. Fırsatı kaydet
+      // 2. Fırsatı oluştur
       const payload = {
-        title: String(form.get("title") ?? ""),
-        description: String(form.get("description") ?? ""),
-        price: String(form.get("price") ?? ""),
-        originalPrice: originalPriceRaw || undefined,
-        currency: String(form.get("currency") ?? ""),
-        categoryId: Number(form.get("categoryId")),
-        locationId: Number(form.get("locationId")),
-        storeName: String(form.get("storeName") ?? ""),
+        title: title.trim(),
+        description: description.trim() || undefined,
+        price,
+        originalPrice: originalPrice || undefined,
+        currency,
+        categoryId: Number(categoryId),
+        locationId: Number(locationId),
+        storeName: storeName.trim(),
+        storePhone: storePhone.trim() || undefined,
+        storeAddress: storeAddress.trim() || undefined,
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
         imageFilenames: imageFilenames.length > 0 ? imageFilenames : undefined,
-        ...(expiresRaw ? { expiresAt: new Date(expiresRaw).toISOString() } : {}),
       };
 
       const res = await fetch("/api/deals", {
@@ -116,214 +154,408 @@ export function DealForm({ categories, locations }: Props) {
         throw new Error(data?.error?.message ?? "Fırsat kaydedilemedi.");
       }
 
-      const created = (await res.json()) as { id: number };
-      toast.success("Fırsat başarıyla paylaşıldı!");
-      router.push(`/firsat/${created.id}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Bir hata oluştu.";
+      const { id } = (await res.json()) as { id: number };
+      toast.success("Fırsat başarıyla paylaşıldı! 🎉");
+      router.push(`/firsat/${id}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Fırsat kaydedilemedi.";
       setError(msg);
       toast.error(msg);
+    } finally {
       setPending(false);
     }
   }
 
-  const inputClass =
-    "w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 shadow-2xs outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20";
+  const steps = [
+    { num: 1, label: "Temel Bilgiler" },
+    { num: 2, label: "Fiyat & İndirim" },
+    { num: 3, label: "Mağaza & Konum" },
+    { num: 4, label: "Fotoğraflar" },
+  ];
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="max-w-xl space-y-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
-    >
-      <label className="block">
-        <span className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-stone-800">
-          <Sparkles className="h-4 w-4 text-teal-600" />
-          Fırsat Başlığı *
-        </span>
-        <input
-          name="title"
-          required
-          minLength={5}
-          maxLength={120}
-          className={inputClass}
-          placeholder="Örn: 5 kg Osmancık Pirinçte Şok İndirim"
-        />
-      </label>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div>
-          <span className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-stone-800">
-            <Banknote className="h-4 w-4 text-teal-600" />
-            İndirimli Fiyat *
-          </span>
-          <input
-            name="price"
-            required
-            inputMode="decimal"
-            pattern="[0-9]+([.,][0-9]{1,2})?"
-            className={inputClass}
-            placeholder="99,90"
-          />
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* Sol: Step Form Alanı (7 Kolon) */}
+      <div className="lg:col-span-7 rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs space-y-6">
+        {/* Adım İlerleme Çubuğu */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-5">
+          {steps.map((s, idx) => (
+            <div key={s.num} className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentStep(s.num)}
+                className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-bold transition ${
+                  currentStep === s.num
+                    ? "bg-slate-950 text-white shadow-sm"
+                    : currentStep > s.num
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-slate-100 text-slate-400"
+                }`}
+              >
+                {currentStep > s.num ? <Check className="h-4 w-4 stroke-[3]" /> : s.num}
+              </button>
+              <span
+                className={`text-xs font-semibold hidden md:inline-block ${
+                  currentStep === s.num ? "text-slate-900" : "text-slate-400"
+                }`}
+              >
+                {s.label}
+              </span>
+              {idx < steps.length - 1 && (
+                <div className="h-0.5 w-6 bg-slate-100 hidden sm:block mx-1" />
+              )}
+            </div>
+          ))}
         </div>
 
-        <div>
-          <span className="mb-1.5 block text-sm font-medium text-stone-600">
-            Eski Fiyat (Opsiyonel)
-          </span>
-          <input
-            name="originalPrice"
-            inputMode="decimal"
-            pattern="[0-9]+([.,][0-9]{1,2})?"
-            className={inputClass}
-            placeholder="149,90"
-          />
-        </div>
-
-        <div>
-          <span className="mb-1.5 block text-sm font-semibold text-stone-800">
-            Para Birimi *
-          </span>
-          <select name="currency" required defaultValue="TRY" className={inputClass}>
-            {CURRENCIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <label className="block">
-          <span className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-stone-800">
-            <Tag className="h-4 w-4 text-teal-600" />
-            Kategori *
-          </span>
-          <select name="categoryId" required className={inputClass}>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-stone-800">
-            <MapPin className="h-4 w-4 text-teal-600" />
-            Konum / Şehir *
-          </span>
-          <select name="locationId" required className={inputClass}>
-            {locations.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <label className="block">
-        <span className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-stone-800">
-          <Store className="h-4 w-4 text-teal-600" />
-          Mağaza / Restoran Adı *
-        </span>
-        <input
-          name="storeName"
-          required
-          minLength={2}
-          maxLength={80}
-          className={inputClass}
-          placeholder="Örn: Lemar Market (Lefkoşa) veya Gloria Jean's"
-        />
-      </label>
-
-      {/* Görsel Yükleme Bölümü */}
-      <div>
-        <span className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-stone-800">
-          <ImageIcon className="h-4 w-4 text-teal-600" />
-          Fırsat Fotoğrafı / Fiyat Etiketi (Opsiyonel - Max 5 adet)
-        </span>
-
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileSelect}
-          accept="image/jpeg,image/png,image/webp"
-          multiple
-          className="hidden"
-        />
-
-        <div
-          onClick={() => fileInputRef.current?.click()}
-          className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-stone-300 bg-stone-50/50 p-5 text-center transition hover:border-teal-500 hover:bg-teal-50/30"
-        >
-          <UploadCloud className="h-8 w-8 text-stone-400" />
-          <p className="mt-1 text-sm font-medium text-stone-700">
-            Fotoğraf seçmek için tıklayın
-          </p>
-          <p className="text-xs text-stone-400">JPEG, PNG veya WebP (Max 5 MB)</p>
-        </div>
-
-        {previewUrls.length > 0 && (
-          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {previewUrls.map((url, i) => (
-              <div key={i} className="group relative aspect-square rounded-lg border border-stone-200 overflow-hidden">
-                <img
-                  src={url}
-                  alt={`Önizleme ${i + 1}`}
-                  className="h-full w-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveImage(i)}
-                  className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-90 hover:bg-black transition"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
+        {error && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-medium text-rose-800">
+            {error}
           </div>
         )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* ADIM 1: Temel Bilgiler */}
+          {currentStep === 1 && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">
+                  Fırsat Başlığı <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Örn: 5 Litre Yudum Ayçiçek Yağı İndirimi"
+                  required
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-slate-950 focus:ring-2 focus:ring-slate-950/10 placeholder:text-slate-400"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">
+                  Kategori <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(Number(e.target.value))}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-slate-950 focus:ring-2 focus:ring-slate-950/10 text-slate-800"
+                >
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">
+                  Fırsat Açıklaması & Şartlar (İsteğe bağlı)
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  placeholder="Kampanya koşulları, kişi başı limit veya geçerlilik detayları..."
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm outline-none focus:border-slate-950 focus:ring-2 focus:ring-slate-950/10 placeholder:text-slate-400"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ADIM 2: Fiyat & İndirim */}
+          {currentStep === 2 && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">
+                    İndirimli Fiyat <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="249.90"
+                    required
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-bold outline-none focus:border-slate-950 focus:ring-2 focus:ring-slate-950/10"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">Para Birimi</label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value as "TRY" | "GBP" | "EUR")}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-bold outline-none focus:border-slate-950"
+                  >
+                    {CURRENCIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c === "TRY" ? "₺ TL" : c === "GBP" ? "£ GBP" : "€ EUR"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">
+                  Eski (Normal) Fiyat (İsteğe bağlı)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={originalPrice}
+                  onChange={(e) => setOriginalPrice(e.target.value)}
+                  placeholder="349.90"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-slate-950 focus:ring-2 focus:ring-slate-950/10"
+                />
+                {discountPercent > 0 && (
+                  <p className="text-xs font-bold text-emerald-700 mt-1">
+                    ✓ Otomatik hesaplanan indirim: %{discountPercent} İndirim
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ADIM 3: Mağaza & Konum */}
+          {currentStep === 3 && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">
+                    Şehir <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={locationId}
+                    onChange={(e) => setLocationId(Number(e.target.value))}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-slate-950"
+                  >
+                    {locations.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">
+                    Mağaza / İşletme Adı <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={storeName}
+                    onChange={(e) => setStoreName(e.target.value)}
+                    placeholder="Örn: Erülkü Süpermarket"
+                    required
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-slate-950"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">
+                    İşletme Telefonu (İsteğe bağlı)
+                  </label>
+                  <input
+                    type="text"
+                    value={storePhone}
+                    onChange={(e) => setStorePhone(e.target.value)}
+                    placeholder="Örn: 0392 223 45 67"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-slate-950"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">
+                    Son Geçerlilik Tarihi (İsteğe bağlı)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={expiresAt}
+                    onChange={(e) => setExpiresAt(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-slate-950 text-slate-700"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">
+                  Mağaza Adresi / Şube (İsteğe bağlı)
+                </label>
+                <input
+                  type="text"
+                  value={storeAddress}
+                  onChange={(e) => setStoreAddress(e.target.value)}
+                  placeholder="Örn: Dereboyu Caddesi No: 42"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-slate-950"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ADIM 4: Fotoğraf Yükleme */}
+          {currentStep === 4 && (
+            <div className="space-y-4 animate-in fade-in">
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-6 text-center hover:border-slate-950 hover:bg-white cursor-pointer transition"
+              >
+                <UploadCloud className="h-8 w-8 text-slate-400 mb-2" />
+                <p className="text-xs font-bold text-slate-800">
+                  Fotoğrafları buraya sürükleyin veya seçin
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Maksimum 5 fotoğraf, her biri max 5 MB (JPEG, PNG, WebP)
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </div>
+
+              {previewUrls.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5 pt-2">
+                  {previewUrls.map((url, idx) => (
+                    <div
+                      key={url}
+                      className="group relative aspect-4/3 overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
+                    >
+                      <img src={url} alt="Önizleme" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(idx)}
+                        className="absolute right-1 top-1 rounded-full bg-slate-950/80 p-1 text-white hover:bg-rose-600 transition"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Buton Kontrolleri */}
+          <div className="flex items-center justify-between border-t border-slate-100 pt-5">
+            {currentStep > 1 ? (
+              <button
+                type="button"
+                onClick={() => setCurrentStep((s) => s - 1)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Geri
+              </button>
+            ) : (
+              <div />
+            )}
+
+            {currentStep < 4 ? (
+              <button
+                type="button"
+                onClick={() => setCurrentStep((s) => s + 1)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 px-5 py-2 text-xs font-bold text-white hover:bg-slate-800 transition"
+              >
+                İleri
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={pending}
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-6 py-2.5 text-xs font-black text-slate-950 hover:bg-amber-400 active:scale-95 transition shadow-sm disabled:opacity-50"
+              >
+                {pending ? "Yayınlanıyor..." : "Fırsatı Yayınla 🚀"}
+              </button>
+            )}
+          </div>
+        </form>
       </div>
 
-      <label className="block">
-        <span className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-stone-800">
-          <FileText className="h-4 w-4 text-stone-500" />
-          Detay & Açıklama (İsteğe Bağlı)
-        </span>
-        <textarea
-          name="description"
-          maxLength={2000}
-          rows={3}
-          className={inputClass}
-          placeholder="Hangi reyon veya şubede? Kampanya şartı var mı? (Örn: Sadece bugün geçerli)"
-        />
-      </label>
-
-      <label className="block">
-        <span className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-stone-800">
-          <Calendar className="h-4 w-4 text-stone-500" />
-          Son Geçerlilik Tarihi (İsteğe Bağlı)
-        </span>
-        <input type="datetime-local" name="expiresAt" className={inputClass} />
-      </label>
-
-      {error && (
-        <div
-          role="alert"
-          className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700 border border-red-200"
-        >
-          {error}
+      {/* Sağ: LIVE PREVIEW KARTI (5 Kolon) */}
+      <div className="lg:col-span-5 space-y-3 sticky top-20 hidden lg:block">
+        <div className="flex items-center justify-between px-1">
+          <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+            Canlı Önizleme
+          </span>
+          <span className="text-[11px] font-medium text-slate-400">
+            Sitede böyle görünecek
+          </span>
         </div>
-      )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full sm:w-auto rounded-lg bg-teal-700 px-6 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:bg-teal-800 active:scale-[0.99] disabled:opacity-50"
-      >
-        {pending ? "Fırsat Paylaşılıyor…" : "Fırsatı Paylaş"}
-      </button>
-    </form>
+        <div className="rounded-2xl border border-slate-300 bg-white overflow-hidden shadow-md">
+          {/* Görsel Alanı */}
+          <div className="relative aspect-16/10 w-full bg-slate-100 border-b border-slate-100 flex items-center justify-center">
+            {previewUrls.length > 0 ? (
+              <img
+                src={previewUrls[0]}
+                alt="Önizleme"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center text-slate-400">
+                <Tag className="h-10 w-10 text-slate-300 stroke-1" />
+                <span className="text-[11px] mt-1 font-medium">Fotoğraf Yok</span>
+              </div>
+            )}
+
+            {discountPercent > 0 && (
+              <span className="absolute left-3 top-3 rounded-lg bg-rose-600 px-2 py-0.5 text-xs font-black text-white shadow-sm">
+                -%{discountPercent} İNDİRİM
+              </span>
+            )}
+          </div>
+
+          {/* İçerik */}
+          <div className="p-4 space-y-2.5">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span className="font-semibold text-slate-600">
+                {selectedCategory?.name || "Kategori"}
+              </span>
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                {selectedLocation?.name || "Lefkoşa"}
+              </span>
+            </div>
+
+            <h3 className="text-base font-bold text-slate-900 leading-snug line-clamp-2">
+              {title || "Fırsat Başlığı Buraya Gelecek"}
+            </h3>
+
+            <p className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
+              <Store className="h-3.5 w-3.5 text-slate-400" />
+              {storeName || "İşletme Adı"}
+            </p>
+
+            <div className="pt-2 border-t border-slate-100 flex items-baseline gap-2">
+              <span className="text-2xl font-black text-slate-950">
+                {price ? `${price} ₺` : "0.00 ₺"}
+              </span>
+              {numOrig > numPrice && (
+                <span className="text-xs text-slate-400 line-through font-medium">
+                  {originalPrice} ₺
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-slate-50 px-4 py-2 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
+            <span>Önizleme modu</span>
+            <span>0 Görüntülenme</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

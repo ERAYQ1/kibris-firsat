@@ -1,60 +1,59 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { DealCard } from "@/components/DealCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { listUserFavorites } from "@/server/favorites";
 import { requireUser } from "@/server/auth";
 import { SESSION_COOKIE_NAME } from "@/lib/session-cookie";
-import { Heart, Sparkles } from "lucide-react";
+import { Heart } from "lucide-react";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Favori Fırsatlarım",
+  description: "Kaydettiğiniz ve takip ettiğiniz indirim fırsatları.",
+};
 
 export default async function FavoritesPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  if (!token) redirect("/giris");
+  if (!token) redirect("/giris?next=/favoriler");
 
   let user;
   try {
     user = requireUser(token);
   } catch {
-    redirect("/giris");
+    redirect("/giris?next=/favoriler");
   }
 
   const items = listUserFavorites(user.id);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between border-b border-stone-200 pb-4">
+    <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-5">
         <div>
-          <h1 className="text-2xl font-black text-stone-900 flex items-center gap-2">
-            <Heart className="h-6 w-6 text-rose-500 fill-rose-500" />
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-950 flex items-center gap-2.5 tracking-tight">
+            <Heart className="h-7 w-7 text-rose-500 fill-rose-500" />
             Favori Fırsatlarım
           </h1>
-          <p className="mt-1 text-sm text-stone-500">
-            Kaydettiğiniz ve takip etmek istediğiniz Kıbrıs fırsatları.
+          <p className="mt-1 text-xs sm:text-sm text-slate-500">
+            Kaydettiğiniz ve takip etmek istediğiniz Kıbrıs indirimleri.
           </p>
         </div>
-        <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-800">
-          {items.length} Fırsat
+        <span className="rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+          {items.length} Kayıtlı Fırsat
         </span>
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-12 text-center text-stone-500 shadow-2xs">
-          <Heart className="mx-auto h-12 w-12 text-stone-300 stroke-1 mb-2" />
-          <p className="font-semibold text-stone-700">Henüz favori fırsatınız yok.</p>
-          <p className="mt-1 text-sm text-stone-400">
-            Beğendiğiniz veya takip etmek istediğiniz indirimleri kalp ikonuna tıklayarak buraya ekleyebilirsiniz.
-          </p>
-          <Link
-            href="/"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800"
-          >
-            <Sparkles className="h-4 w-4" />
-            Fırsatları Keşfet
-          </Link>
-        </div>
+        <EmptyState
+          icon={<Heart className="h-7 w-7 text-rose-500" />}
+          title="Henüz favori fırsatınız bulunmuyor."
+          description="Fırsat kartlarındaki kalp ikonuna tıklayarak beğendiğiniz indirimleri kolayca listenize ekleyebilirsiniz."
+          actionText="Fırsatları Keşfet"
+          actionHref="/"
+        />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {items.map((deal) => (
             <DealCard key={deal.id} deal={deal} />
           ))}

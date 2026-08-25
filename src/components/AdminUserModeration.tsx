@@ -40,7 +40,7 @@ export function AdminUserModeration({ initialUsers }: Props) {
       setUsersList((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, isBanned: isBanned ? 1 : 0 } : u))
       );
-      toast.success(isBanned ? "Kullanıcı engellendi (Ban)." : "Kullanıcının engeli kaldırıldı.");
+      toast.success(isBanned ? "Kullanıcı engellendi." : "Kullanıcı engeli kaldırıldı.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Hata oluştu.");
     } finally {
@@ -49,53 +49,53 @@ export function AdminUserModeration({ initialUsers }: Props) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white shadow-xs">
+    <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-xs">
       <table className="w-full text-left text-xs">
-        <thead className="border-b border-stone-200 bg-stone-50 font-semibold text-stone-700">
+        <thead className="border-b border-slate-100 bg-slate-50 font-bold text-slate-700">
           <tr>
-            <th className="p-3">ID</th>
-            <th className="p-3">Kullanıcı</th>
-            <th className="p-3">E-posta</th>
-            <th className="p-3">Rol</th>
-            <th className="p-3">Kayıt Tarihi</th>
-            <th className="p-3">Durum</th>
-            <th className="p-3 text-right">İşlem</th>
+            <th className="p-4">ID</th>
+            <th className="p-4">Kullanıcı</th>
+            <th className="p-4">E-posta</th>
+            <th className="p-4">Rol</th>
+            <th className="p-4">Kayıt Tarihi</th>
+            <th className="p-4">Durum</th>
+            <th className="p-4 text-right">İşlem</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-stone-100">
+        <tbody className="divide-y divide-slate-100">
           {usersList.map((u) => (
-            <tr key={u.id} className="hover:bg-stone-50/50">
-              <td className="p-3 font-mono text-stone-400">#{u.id}</td>
-              <td className="p-3 font-bold text-stone-900">{u.displayName}</td>
-              <td className="p-3 text-stone-600">{u.email}</td>
-              <td className="p-3">
+            <tr key={u.id} className="hover:bg-slate-50/60 transition">
+              <td className="p-4 font-mono text-slate-400">#{u.id}</td>
+              <td className="p-4 font-bold text-slate-900">{u.displayName}</td>
+              <td className="p-4 text-slate-600">{u.email}</td>
+              <td className="p-4">
                 {u.role === "admin" ? (
-                  <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 font-bold text-amber-800">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 font-bold text-amber-800 border border-amber-200">
                     <Shield className="h-3 w-3" /> Admin
                   </span>
                 ) : (
-                  <span className="text-stone-500">Üye</span>
+                  <span className="text-slate-500">Üye</span>
                 )}
               </td>
-              <td className="p-3 text-stone-500">{formatTimeAgo(u.createdAt)}</td>
-              <td className="p-3">
+              <td className="p-4 text-slate-500">{formatTimeAgo(u.createdAt)}</td>
+              <td className="p-4">
                 {u.isBanned === 1 ? (
-                  <span className="rounded-full bg-rose-100 px-2 py-0.5 font-bold text-rose-800">
-                    Engelli (Banned)
+                  <span className="rounded-lg bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 border border-rose-200/80">
+                    Engellendi (Ban)
                   </span>
                 ) : (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-bold text-emerald-800">
+                  <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200/80">
                     Aktif
                   </span>
                 )}
               </td>
-              <td className="p-3 text-right">
+              <td className="p-4 text-right">
                 {u.role !== "admin" && (
                   <button
                     type="button"
                     disabled={loadingId === u.id}
                     onClick={() => handleToggleBan(u.id)}
-                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition active:scale-95 disabled:opacity-50 ${
+                    className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition active:scale-95 disabled:opacity-50 ${
                       u.isBanned === 1
                         ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
                         : "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
@@ -103,11 +103,11 @@ export function AdminUserModeration({ initialUsers }: Props) {
                   >
                     {u.isBanned === 1 ? (
                       <>
-                        <UserCheck className="h-3 w-3" /> Engeli Kaldır
+                        <UserCheck className="h-3.5 w-3.5" /> Engeli Kaldır
                       </>
                     ) : (
                       <>
-                        <UserX className="h-3 w-3" /> Engelle (Ban)
+                        <UserX className="h-3.5 w-3.5" /> Engelle
                       </>
                     )}
                   </button>

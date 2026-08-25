@@ -3,11 +3,13 @@
 import { useState, useEffect } from "react";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface Props {
   dealId: number;
   initialFavorited?: boolean;
   initialCount?: number;
+  variant?: "icon" | "pill";
   className?: string;
 }
 
@@ -15,6 +17,7 @@ export function FavoriteButton({
   dealId,
   initialFavorited = false,
   initialCount = 0,
+  variant = "icon",
   className = "",
 }: Props) {
   const [favorited, setFavorited] = useState(initialFavorited);
@@ -76,23 +79,52 @@ export function FavoriteButton({
     }
   }
 
+  if (variant === "icon") {
+    return (
+      <button
+        type="button"
+        onClick={handleToggle}
+        disabled={loading}
+        aria-label={favorited ? "Favorilerden çıkar" : "Favorilere ekle"}
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-xl backdrop-blur-md shadow-xs transition-all active:scale-90",
+          favorited
+            ? "bg-rose-50 border border-rose-200 text-rose-600"
+            : "bg-white/90 border border-slate-200/80 text-slate-400 hover:text-slate-700 hover:bg-white",
+          className
+        )}
+      >
+        <Heart
+          className={cn(
+            "h-4 w-4 transition-transform duration-200",
+            favorited ? "fill-rose-500 text-rose-500 scale-110" : "hover:scale-110"
+          )}
+        />
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
       onClick={handleToggle}
+      disabled={loading}
       aria-label={favorited ? "Favorilerden çıkar" : "Favorilere ekle"}
-      className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold shadow-2xs transition active:scale-95",
         favorited
-          ? "border-rose-300 bg-rose-50 text-rose-600 shadow-2xs"
-          : "border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-50"
-      } ${className}`}
+          ? "border-rose-300 bg-rose-50 text-rose-600"
+          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
+        className
+      )}
     >
       <Heart
-        className={`h-4 w-4 transition-transform duration-200 ${
-          favorited ? "fill-rose-500 text-rose-500 scale-110" : "text-stone-400"
-        }`}
+        className={cn(
+          "h-4 w-4 transition-transform duration-200",
+          favorited ? "fill-rose-500 text-rose-500 scale-110" : "text-slate-400"
+        )}
       />
-      <span>{count > 0 ? count : "Favori"}</span>
+      <span>{count > 0 ? `${count} Favori` : "Favoriye Ekle"}</span>
     </button>
   );
 }

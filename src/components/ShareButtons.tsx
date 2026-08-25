@@ -1,6 +1,7 @@
 "use client";
 
-import { Share2, Link2, MessageCircle } from "lucide-react";
+import { useState } from "react";
+import { Share2, Check, Copy, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -8,64 +9,109 @@ interface Props {
   url?: string;
 }
 
-export function ShareButtons({ title }: Props) {
-  function handleCopy() {
-    if (typeof window === "undefined") return;
-    navigator.clipboard.writeText(window.location.href);
-    toast.success("Bağlantı kopyalandı! 🔗");
+export function ShareButtons({ title, url }: Props) {
+  const [copied, setCopied] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  function getShareUrl() {
+    if (typeof window === "undefined") return url || "";
+    return url || window.location.href;
   }
 
-  function handleWhatsApp() {
-    if (typeof window === "undefined") return;
-    const text = encodeURIComponent(`Kıbrıs Fırsat'ta gördüm: ${title} 👉 ${window.location.href}`);
-    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
-  }
-
-  async function handleNativeShare() {
-    if (typeof window === "undefined") return;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title,
-          text: `Kıbrıs Fırsat: ${title}`,
-          url: window.location.href,
-        });
-      } catch {
-        // user cancelled or share failed
-      }
-    } else {
-      handleCopy();
+  async function handleCopy() {
+    const fullUrl = getShareUrl();
+    try {
+      await navigator.clipboard.writeText(fullUrl);
+      setCopied(true);
+      toast.success("Bağlantı kopyalandı!");
+      setTimeout(() => setCopied(false), 2000);
+      setIsOpen(false);
+    } catch {
+      toast.error("Bağlantı kopyalanamadı.");
     }
   }
 
+  function handleNativeShare() {
+    const fullUrl = getShareUrl();
+    if (navigator.share) {
+      navigator
+        .share({
+          title,
+          text: `${title} — Kıbrıs Fırsat`,
+          url: fullUrl,
+        })
+        .catch(() => null);
+    } else {
+      setIsOpen(!isOpen);
+    }
+  }
+
+  function handleWhatsApp() {
+    const fullUrl = getShareUrl();
+    const text = encodeURIComponent(`Kıbrıs Fırsat'ta buldum: ${title}\n${fullUrl}`);
+    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+    setIsOpen(false);
+  }
+
+  function handleTelegram() {
+    const fullUrl = getShareUrl();
+    const text = encodeURIComponent(title);
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(fullUrl)}&text=${text}`, "_blank");
+    setIsOpen(false);
+  }
+
   return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={handleWhatsApp}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100/80 active:scale-95 shadow-2xs"
-      >
-        <MessageCircle className="h-4 w-4 fill-emerald-600 text-emerald-600" />
-        <span>WhatsApp</span>
-      </button>
-
-      <button
-        type="button"
-        onClick={handleCopy}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 transition hover:border-stone-300 hover:bg-stone-50 active:scale-95 shadow-2xs"
-      >
-        <Link2 className="h-4 w-4 text-stone-500" />
-        <span>Linki Kopyala</span>
-      </button>
-
+    <div className="relative">
       <button
         type="button"
         onClick={handleNativeShare}
-        aria-label="Paylaş"
-        className="inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white p-1.5 text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 active:scale-95 shadow-2xs sm:hidden"
+        className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:border-slate-300 hover:bg-slate-50 transition"
       >
-        <Share2 className="h-4 w-4 text-stone-500" />
+        <Share2 className="h-3.5 w-3.5 text-slate-500" />
+        <span>Paylaş</span>
       </button>
+
+      {isOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => setIsOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="absolute right-0 mt-1.5 w-48 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl z-40 animate-in fade-in zoom-in-95 duration-150">
+            <button
+              type="button"
+              onClick={handleWhatsApp}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-900 transition"
+            >
+              <MessageCircle className="h-4 w-4 text-emerald-600" />
+              WhatsApp'ta Paylaş
+            </button>
+
+            <button
+              type="button"
+              onClick={handleTelegram}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-sky-50 hover:text-sky-900 transition"
+            >
+              <Send className="h-4 w-4 text-sky-600" />
+              Telegram'da Paylaş
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 transition"
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-emerald-600" />
+              ) : (
+                <Copy className="h-4 w-4 text-slate-500" />
+              )}
+              {copied ? "Kopyalandı!" : "Bağlantıyı Kopyala"}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

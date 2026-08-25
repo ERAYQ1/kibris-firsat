@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { ThumbsUp, ThumbsDown } from "lucide-react";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface Props {
   dealId: number;
@@ -9,63 +12,80 @@ interface Props {
 
 export function VoteButtons({ dealId, initialValue = 0 }: Props) {
   const [vote, setVote] = useState(initialValue);
-  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const router = useRouter();
 
   async function submit(next: 1 | -1) {
+    if (pending) return;
     setPending(true);
-    setError(null);
     const newValue = vote === next ? 0 : next;
+
     try {
       const res = await fetch(`/api/deals/${dealId}/vote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ value: newValue }),
       });
+
+      if (res.status === 401) {
+        toast.error("Oy vermek için giriş yapmalısınız.");
+        return;
+      }
+
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error?.message ?? "Oy verilemedi.");
       }
+
       setVote(newValue);
-      window.location.reload();
+      toast.success(
+        newValue === 1
+          ? "Fırsatı beğendiniz! 👍"
+          : newValue === -1
+          ? "Geri bildiriminiz kaydedildi. 👎"
+          : "Oyunuz geri çekildi."
+      );
+      router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Bir hata oluştu.");
+      toast.error(e instanceof Error ? e.message : "Bir hata oluştu.");
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       <button
         type="button"
         onClick={() => submit(1)}
         disabled={pending}
         aria-pressed={vote === 1}
         aria-label="İyi fırsat"
-        className={`rounded-full border px-3 py-1 text-sm transition-colors disabled:opacity-50 ${
+        className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95 disabled:opacity-50 ${
           vote === 1
-            ? "border-teal-600 bg-teal-50 text-teal-700"
-            : "border-stone-300 bg-white hover:border-teal-500"
+            ? "border-emerald-300 bg-emerald-50 text-emerald-800 shadow-2xs"
+            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
         }`}
       >
-        👍 İyi fırsat
+        <ThumbsUp className={`h-3.5 w-3.5 ${vote === 1 ? "fill-emerald-600 text-emerald-600" : "text-slate-400"}`} />
+        <span>İyi Fiyat</span>
       </button>
+
       <button
         type="button"
         onClick={() => submit(-1)}
         disabled={pending}
         aria-pressed={vote === -1}
         aria-label="Kötü fırsat"
-        className={`rounded-full border px-3 py-1 text-sm transition-colors disabled:opacity-50 ${
+        className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95 disabled:opacity-50 ${
           vote === -1
-            ? "border-red-400 bg-red-50 text-red-600"
-            : "border-stone-300 bg-white hover:border-red-300"
+            ? "border-rose-300 bg-rose-50 text-rose-800 shadow-2xs"
+            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
         }`}
       >
-        👎 Kötü fırsat
+        <ThumbsDown className={`h-3.5 w-3.5 ${vote === -1 ? "fill-rose-600 text-rose-600" : "text-slate-400"}`} />
+        <span>Pahalı</span>
       </button>
-      {error && <span className="text-xs text-red-600">{error}</span>}
     </div>
   );
 }

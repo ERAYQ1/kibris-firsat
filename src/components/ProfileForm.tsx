@@ -23,8 +23,8 @@ export function ProfileForm({ initialDisplayName, initialBio }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          displayName,
-          bio: bio || undefined,
+          displayName: displayName.trim(),
+          bio: bio.trim() || undefined,
         }),
       });
 
@@ -42,14 +42,14 @@ export function ProfileForm({ initialDisplayName, initialBio }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-xs">
-      <h3 className="text-sm font-bold text-stone-900 flex items-center gap-1.5 border-b border-stone-100 pb-3">
-        <User className="h-4 w-4 text-teal-600" />
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-xs">
+      <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 border-b border-slate-100 pb-3">
+        <User className="h-4 w-4 text-amber-600" />
         Profil Bilgilerini Düzenle
       </h3>
 
-      <div>
-        <label className="block text-xs font-semibold text-stone-700 mb-1">
+      <div className="space-y-1.5">
+        <label className="block text-xs font-bold text-slate-700">
           Görünen İsim / Kullanıcı Adı *
         </label>
         <input
@@ -59,35 +59,35 @@ export function ProfileForm({ initialDisplayName, initialBio }: Props) {
           required
           minLength={2}
           maxLength={40}
-          className="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-sm text-stone-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 shadow-2xs"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-950/10 shadow-2xs"
         />
       </div>
 
-      <div>
-        <label className="block text-xs font-semibold text-stone-700 mb-1">
-          Hakkımda / Biyografi (Opsiyonel)
+      <div className="space-y-1.5">
+        <label className="block text-xs font-bold text-slate-700">
+          Biyografi (İsteğe bağlı)
         </label>
         <textarea
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           rows={3}
           maxLength={300}
-          placeholder="Kendinizden veya fırsat ilgi alanlarınızdan bahsedin (Örn: Girne'deki kahve ve restoran indirimleri avcısı)."
-          className="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-sm text-stone-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 shadow-2xs"
+          placeholder="Kendinizden veya takip ettiğiniz fırsat alanlarından bahsedin..."
+          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-950 focus:ring-2 focus:ring-slate-950/10 shadow-2xs"
         />
-        <span className="text-[11px] text-stone-400 block text-right">
+        <span className="text-[11px] text-slate-400 block text-right">
           {bio.length}/300
         </span>
       </div>
 
-      <div className="pt-1">
+      <div className="pt-2">
         <button
           type="submit"
           disabled={saving}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-teal-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-teal-800 active:scale-95 disabled:opacity-50 shadow-2xs"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 px-4.5 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800 active:scale-95 disabled:opacity-50 shadow-sm"
         >
-          <Check className="h-3.5 w-3.5" />
-          {saving ? "Kaydediliyor…" : "Değişiklikleri Kaydet"}
+          <Check className="h-4 w-4" />
+          {saving ? "Kaydediliyor…" : "Kaydet"}
         </button>
       </div>
     </form>
