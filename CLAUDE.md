@@ -1,7 +1,7 @@
 # CLAUDE.md — Kıbrıs Fırsat
 
-Claude Code için çalışma kuralları. Tam bağlam için `AGENTS.md` tek doğruluk kaynağıdır;
-bu dosya onunla çelişmez, sadece Claude'a özgü davranış disiplinini zorunlu kılar.
+Claude Code için çalışma kuralları. Tam bağlam için `AGENTS.md` ve `ARCHITECTURE.md`
+temel referanslardır; bu dosya onlarla çelişmez, sadece Claude'a özgü davranış disiplinini zorunlu kılar.
 
 ## Zorunlu Davranışlar
 
