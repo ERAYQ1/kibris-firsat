@@ -1,4 +1,17 @@
-import { and, asc, desc, eq, gt, inArray, like, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  gt,
+  inArray,
+  isNull,
+  like,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { getDb, type Db } from "@/server/db";
 import {
   categories,
@@ -22,7 +35,10 @@ export interface DealListItem {
   priceCents: number;
   originalPriceCents: number | null;
   currency: "TRY" | "GBP" | "EUR";
-  status: "active" | "expired" | "reported" | "removed";
+  status: "active" | "expired" | "sold_out" | "hidden" | "rejected" | "reported" | "removed";
+  viewCount: number;
+  isVerified: boolean;
+  tags: string | null;
   createdAt: number;
   expiresAt: number | null;
   categoryName: string;
@@ -37,7 +53,10 @@ export interface DealListOptions {
   q?: string;
   categorySlug?: string;
   locationSlug?: string;
-  sort?: "newest" | "top" | "hot" | "discount";
+  minPriceCents?: number;
+  maxPriceCents?: number;
+  minDiscount?: number;
+  sort?: "newest" | "top" | "hot" | "discount" | "price_asc" | "price_desc";
   includeInactive?: boolean;
   page?: number;
   pageSize?: number;
@@ -50,6 +69,17 @@ const scoreSubquery = sql<number>`(
   SELECT COALESCE(SUM(v.value), 0) FROM votes v WHERE v.deal_id = ${deals.id}
 )`;
 
+export function isDealActive(
+  deal: { status: string; expiresAt?: number | null },
+  nowSec: number = Math.floor(Date.now() / 1000)
+): boolean {
+  if (deal.status !== "active") return false;
+  if (deal.expiresAt !== undefined && deal.expiresAt !== null && deal.expiresAt <= nowSec) {
+    return false;
+  }
+  return true;
+}
+
 function listQuery(database: Db) {
   return database
     .select({
@@ -59,6 +89,9 @@ function listQuery(database: Db) {
       originalPriceCents: deals.originalPriceCents,
       currency: deals.currency,
       status: deals.status,
+      viewCount: deals.viewCount,
+      isVerified: deals.isVerified,
+      tags: deals.tags,
       createdAt: deals.createdAt,
       expiresAt: deals.expiresAt,
       categoryName: categories.name,
@@ -88,7 +121,7 @@ export async function listDeals(
       or(gt(deals.expiresAt, sql`(unixepoch())`), isNull(deals.expiresAt))
     );
   } else {
-    conditions.push(inArray(deals.status, ["active", "expired"]));
+    conditions.push(inArray(deals.status, ["active", "expired", "sold_out"]));
   }
   if (options.q) {
     const pattern = `%${options.q.replace(/[%_\\]/g, " ")}%`;
@@ -98,6 +131,20 @@ export async function listDeals(
   }
   if (options.categorySlug) conditions.push(eq(categories.slug, options.categorySlug));
   if (options.locationSlug) conditions.push(eq(locations.slug, options.locationSlug));
+  if (options.minPriceCents !== undefined && options.minPriceCents > 0) {
+    conditions.push(gte(deals.priceCents, options.minPriceCents));
+  }
+  if (options.maxPriceCents !== undefined && options.maxPriceCents > 0) {
+    conditions.push(lte(deals.priceCents, options.maxPriceCents));
+  }
+  if (options.minDiscount !== undefined && options.minDiscount > 0) {
+    conditions.push(
+      gte(
+        sql`COALESCE((${deals.originalPriceCents} - ${deals.priceCents}) * 100 / ${deals.originalPriceCents}, 0)`,
+        options.minDiscount
+      )
+    );
+  }
 
   const where = conditions.length ? and(...conditions) : undefined;
   let orderBy;
@@ -110,6 +157,10 @@ export async function listDeals(
       ),
       desc(deals.createdAt),
     ];
+  } else if (options.sort === "price_asc") {
+    orderBy = [asc(deals.priceCents), desc(deals.createdAt)];
+  } else if (options.sort === "price_desc") {
+    orderBy = [desc(deals.priceCents), desc(deals.createdAt)];
   } else {
     orderBy = [desc(deals.createdAt)];
   }
@@ -129,7 +180,21 @@ export async function listDeals(
     .where(where)
     .get();
 
-  return { items: rows, total: totalRow?.count ?? 0, page, pageSize };
+  const formattedItems: DealListItem[] = rows.map((r) => ({
+    ...r,
+    isVerified: r.isVerified === 1,
+  }));
+
+  return { items: formattedItems, total: totalRow?.count ?? 0, page, pageSize };
+}
+
+export function incrementViewCount(dealId: number, database: Db = getDb()): void {
+  if (!Number.isInteger(dealId) || dealId <= 0) return;
+  database
+    .update(deals)
+    .set({ viewCount: sql`${deals.viewCount} + 1` })
+    .where(eq(deals.id, dealId))
+    .run();
 }
 
 export function getDealDetail(id: number, database: Db = getDb()) {
@@ -138,35 +203,63 @@ export function getDealDetail(id: number, database: Db = getDb()) {
     .select({
       deal: deals,
       categoryName: categories.name,
+      categorySlug: categories.slug,
       locationName: locations.name,
+      locationSlug: locations.slug,
       storeName: stores.name,
-      authorName: sql<string>`(SELECT display_name FROM users u WHERE u.id = ${deals.authorId})`,
-      upvotes: sql<number>`(SELECT COUNT(*) FROM votes v WHERE v.deal_id = ${deals.id} AND v.value = 1)`,
-      downvotes: sql<number>`(SELECT COUNT(*) FROM votes v WHERE v.deal_id = ${deals.id} AND v.value = -1)`,
+      storePhone: stores.phone,
+      storeAddress: stores.address,
+      authorName: users.displayName,
+      authorId: users.id,
+      score: scoreSubquery.as("score"),
     })
     .from(deals)
     .innerJoin(categories, eq(categories.id, deals.categoryId))
     .innerJoin(locations, eq(locations.id, deals.locationId))
     .innerJoin(stores, eq(stores.id, deals.storeId))
+    .innerJoin(users, eq(users.id, deals.authorId))
     .where(eq(deals.id, id))
     .get();
+
   if (!row) throw Errors.notFound("Fırsat");
 
   const images = database
-    .select({ filename: dealImages.filename })
+    .select({ id: dealImages.id, filename: dealImages.filename, sortOrder: dealImages.sortOrder })
     .from(dealImages)
     .where(eq(dealImages.dealId, id))
-    .orderBy(asc(dealImages.sortOrder))
+    .orderBy(dealImages.sortOrder)
     .all();
 
   const priceHistory = database
-    .select({ priceCents: priceEntries.priceCents, recordedAt: priceEntries.recordedAt })
+    .select({
+      id: priceEntries.id,
+      priceCents: priceEntries.priceCents,
+      currency: priceEntries.currency,
+      recordedAt: priceEntries.recordedAt,
+    })
     .from(priceEntries)
     .where(eq(priceEntries.dealId, id))
-    .orderBy(asc(priceEntries.recordedAt))
+    .orderBy(desc(priceEntries.recordedAt))
+    .limit(10)
     .all();
 
-  return { ...row, images, priceHistory };
+  return {
+    ...row.deal,
+    deal: row.deal,
+    categoryName: row.categoryName,
+    categorySlug: row.categorySlug,
+    locationName: row.locationName,
+    locationSlug: row.locationSlug,
+    storeName: row.storeName,
+    storePhone: row.storePhone,
+    storeAddress: row.storeAddress,
+    authorName: row.authorName,
+    authorId: row.authorId,
+    score: row.score,
+    isVerified: row.deal.isVerified === 1,
+    images,
+    priceHistory,
+  };
 }
 
 export async function createDeal(
@@ -176,24 +269,12 @@ export async function createDeal(
 ): Promise<{ id: number }> {
   const data = dealCreateSchema.parse(input);
   const priceCents = parsePriceToCents(data.price);
-  if (priceCents <= 0) throw Errors.validation("Fiyat sıfırdan büyük olmalı.");
+  const originalPriceCents = data.originalPrice
+    ? parsePriceToCents(data.originalPrice)
+    : null;
 
-  let originalPriceCents: number | null = null;
-  if (data.originalPrice) {
-    originalPriceCents = parsePriceToCents(data.originalPrice);
-    if (originalPriceCents <= priceCents) {
-      throw Errors.validation("Eski fiyat, indirimli fiyattan büyük olmalıdır.");
-    }
-  }
-
-  let expiresAt: number | null = null;
-  if (data.expiresAt) {
-    const ts = Math.floor(new Date(data.expiresAt).getTime() / 1000);
-    const nowSec = Math.floor(Date.now() / 1000);
-    if (ts <= nowSec) throw Errors.validation("Geçerlilik tarihi gelecekte olmalı.");
-    if (ts > nowSec + 366 * 24 * 3600)
-      throw Errors.validation("Geçerlilik tarihi en fazla 1 yıl sonrası olabilir.");
-    expiresAt = ts;
+  if (originalPriceCents !== null && originalPriceCents <= priceCents) {
+    throw Errors.validation("Eski fiyat, indirimli fiyattan yüksek olmalıdır.");
   }
 
   const category = database
@@ -201,16 +282,23 @@ export async function createDeal(
     .from(categories)
     .where(eq(categories.id, data.categoryId))
     .get();
-  if (!category) throw Errors.validation("Geçersiz kategori.");
+  if (!category) throw Errors.notFound("Kategori");
 
   const location = database
     .select({ id: locations.id })
     .from(locations)
     .where(eq(locations.id, data.locationId))
     .get();
-  if (!location) throw Errors.validation("Geçersiz konum.");
+  if (!location) throw Errors.notFound("Konum");
 
-  const normalizedName = data.storeName.trim().toLocaleLowerCase("tr-TR").replace(/\s+/g, " ");
+  const expiresAt = data.expiresAt ? Math.floor(new Date(data.expiresAt).getTime() / 1000) : null;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const maxExpiresAt = nowSec + 365 * 86400;
+  if (expiresAt && (expiresAt <= nowSec || expiresAt > maxExpiresAt)) {
+    throw Errors.validation("Son geçerlilik tarihi 1 yıldan uzun olamaz.");
+  }
+
+  const normalizedName = data.storeName.trim().toLowerCase();
   let store = database
     .select({ id: stores.id })
     .from(stores)
@@ -262,15 +350,22 @@ export async function createDeal(
   return { id: inserted.id };
 }
 
-export async function deleteDeal(
+export function updateDealStatus(
   dealId: number,
-  actor: PublicUser,
+  status: "active" | "expired" | "sold_out" | "hidden" | "rejected" | "reported" | "removed",
+  user: PublicUser,
   database: Db = getDb()
-): Promise<void> {
+): void {
+  if (!Number.isInteger(dealId) || dealId <= 0) throw Errors.badRequest("Geçersiz fırsat.");
+
   const deal = database.select().from(deals).where(eq(deals.id, dealId)).get();
   if (!deal) throw Errors.notFound("Fırsat");
-  if (deal.authorId !== actor.id && actor.role !== "admin") throw Errors.forbidden();
-  database.delete(deals).where(eq(deals.id, dealId)).run();
+
+  if (user.role !== "admin" && deal.authorId !== user.id) {
+    throw Errors.forbidden();
+  }
+
+  database.update(deals).set({ status }).where(eq(deals.id, dealId)).run();
 }
 
 export async function setVote(
@@ -278,42 +373,41 @@ export async function setVote(
   userId: number,
   value: 1 | -1 | 0,
   database: Db = getDb()
-): Promise<{ upvotes: number; downvotes: number }> {
+): Promise<{ upvotes: number; downvotes: number; userVote?: 1 | -1 | null }> {
+  if (!Number.isInteger(dealId) || dealId <= 0) throw Errors.badRequest("Geçersiz fırsat.");
+
   const deal = database
-    .select({ status: deals.status })
+    .select({ id: deals.id, authorId: deals.authorId, status: deals.status })
     .from(deals)
     .where(eq(deals.id, dealId))
     .get();
-  if (!deal) throw Errors.notFound("Fırsat");
-  if (deal.status !== "active")
-    throw Errors.conflict("Yalnızca aktif fırsatlara oy verilebilir.");
-
-  if (value === 0) {
-    database.delete(votes).where(and(eq(votes.dealId, dealId), eq(votes.userId, userId))).run();
-  } else {
-    database
-      .insert(votes)
-      .values({ dealId, userId, value })
-      .onConflictDoUpdate({
-        target: [votes.userId, votes.dealId],
-        set: { value },
-      })
-      .run();
+  if (!deal || deal.status === "removed") throw Errors.notFound("Fırsat");
+  if (deal.status === "expired") {
+    throw Errors.conflict("Süresi dolmuş fırsata oy verilemez.");
+  }
+  if (deal.authorId === userId) {
+    throw Errors.badRequest("Kendi fırsatınıza oy veremezsiniz.");
   }
 
-  return getVoteCounts(dealId, database);
-}
-
-export function getVoteCounts(dealId: number, database: Db = getDb()) {
-  const rows = database
-    .select({ value: votes.value, count: sql<number>`COUNT(*)` })
+  const existing = database
+    .select({ id: votes.id, value: votes.value })
     .from(votes)
-    .where(eq(votes.dealId, dealId))
-    .groupBy(votes.value)
-    .all();
-  const upvotes = rows.find((r) => r.value === 1)?.count ?? 0;
-  const downvotes = rows.find((r) => r.value === -1)?.count ?? 0;
-  return { upvotes, downvotes };
+    .where(and(eq(votes.dealId, dealId), eq(votes.userId, userId)))
+    .get();
+
+  if (value === 0) {
+    if (existing) {
+      database.delete(votes).where(eq(votes.id, existing.id)).run();
+    }
+  } else if (!existing) {
+    database.insert(votes).values({ dealId, userId, value }).run();
+  } else if (existing.value === value) {
+    database.delete(votes).where(eq(votes.id, existing.id)).run();
+  } else {
+    database.update(votes).set({ value }).where(eq(votes.id, existing.id)).run();
+  }
+
+  return getVoteCounts(dealId, userId, database);
 }
 
 export function getUserVote(
@@ -326,61 +420,111 @@ export function getUserVote(
     .from(votes)
     .where(and(eq(votes.dealId, dealId), eq(votes.userId, userId)))
     .get();
-  if (!row) return 0;
-  return row.value === 1 ? 1 : -1;
+  return (row?.value as 1 | -1) ?? 0;
+}
+
+export function getVoteCounts(
+  dealId: number,
+  userIdOrDb?: number | Db,
+  database?: Db
+): { upvotes: number; downvotes: number; userVote?: 1 | -1 | null } {
+  const db = (typeof userIdOrDb === "object" ? userIdOrDb : database) ?? getDb();
+  const userId = typeof userIdOrDb === "number" ? userIdOrDb : undefined;
+
+  const rows = db
+    .select({ value: votes.value, count: sql<number>`COUNT(*)` })
+    .from(votes)
+    .where(eq(votes.dealId, dealId))
+    .groupBy(votes.value)
+    .all();
+
+  let upvotes = 0;
+  let downvotes = 0;
+  for (const r of rows) {
+    if (r.value === 1) upvotes = r.count;
+    if (r.value === -1) downvotes = r.count;
+  }
+
+  if (userId !== undefined) {
+    const u = db
+      .select({ value: votes.value })
+      .from(votes)
+      .where(and(eq(votes.dealId, dealId), eq(votes.userId, userId)))
+      .get();
+    const userVote = (u?.value as 1 | -1) ?? null;
+    return { upvotes, downvotes, userVote };
+  }
+
+  return { upvotes, downvotes };
 }
 
 export function createReport(
   dealId: number,
-  reporter: PublicUser,
+  userOrId: number | PublicUser,
   reason: ReportReason,
-  details: string | null,
+  details?: string | null,
   database: Db = getDb()
-): void {
+): { id: number } {
+  if (!Number.isInteger(dealId) || dealId <= 0) throw Errors.badRequest("Geçersiz fırsat.");
+  const userId = typeof userOrId === "number" ? userOrId : userOrId.id;
+
   const deal = database
-    .select({ id: deals.id, status: deals.status })
+    .select({ id: deals.id, authorId: deals.authorId, status: deals.status })
     .from(deals)
     .where(eq(deals.id, dealId))
     .get();
-  if (!deal) throw Errors.notFound("Fırsat");
+  if (!deal || deal.status === "removed") throw Errors.notFound("Fırsat");
+  if (deal.authorId === userId) {
+    throw Errors.badRequest("Kendi fırsatınızı raporlayamazsınız.");
+  }
 
   const existing = database
     .select({ id: reports.id })
     .from(reports)
-    .where(and(eq(reports.dealId, dealId), eq(reports.userId, reporter.id)))
+    .where(and(eq(reports.dealId, dealId), eq(reports.userId, userId)))
     .get();
-  if (existing) throw Errors.conflict("Bu fırsatı zaten raporladınız.");
+  if (existing) {
+    throw Errors.conflict("Bu fırsatı zaten raporladınız.");
+  }
 
-  database.insert(reports).values({ dealId, userId: reporter.id, reason, details }).run();
+  const inserted = database
+    .insert(reports)
+    .values({
+      dealId,
+      userId,
+      reason,
+      details: details?.trim().slice(0, 500) || null,
+    })
+    .returning({ id: reports.id })
+    .get();
 
-  const openCount = database
+  const countRow = database
     .select({ count: sql<number>`COUNT(*)` })
     .from(reports)
     .where(and(eq(reports.dealId, dealId), eq(reports.status, "open")))
     .get();
-  if ((openCount?.count ?? 0) >= 3 && deal.status === "active") {
-    database
-      .update(deals)
-      .set({ status: "reported", updatedAt: sql`(unixepoch())` })
-      .where(eq(deals.id, dealId))
-      .run();
+
+  if ((countRow?.count ?? 0) >= 3) {
+    database.update(deals).set({ status: "reported" }).where(eq(deals.id, dealId)).run();
   }
+
+  return { id: inserted.id };
 }
 
-export type ReportWithMeta = {
+export interface AdminReportItem {
   id: number;
   dealId: number;
   dealTitle: string;
   dealStatus: string;
-  reason: string;
+  reason: ReportReason;
   details: string | null;
-  status: string;
-  createdAt: number;
+  reporterEmail: string;
   reporterName: string;
-};
+  createdAt: number;
+}
 
-export function listOpenReports(database: Db = getDb()): ReportWithMeta[] {
-  return database
+export function listOpenReports(database: Db = getDb()): AdminReportItem[] {
+  const rows = database
     .select({
       id: reports.id,
       dealId: reports.dealId,
@@ -388,9 +532,9 @@ export function listOpenReports(database: Db = getDb()): ReportWithMeta[] {
       dealStatus: deals.status,
       reason: reports.reason,
       details: reports.details,
-      status: reports.status,
-      createdAt: reports.createdAt,
+      reporterEmail: users.email,
       reporterName: users.displayName,
+      createdAt: reports.createdAt,
     })
     .from(reports)
     .innerJoin(deals, eq(deals.id, reports.dealId))
@@ -398,48 +542,93 @@ export function listOpenReports(database: Db = getDb()): ReportWithMeta[] {
     .where(eq(reports.status, "open"))
     .orderBy(desc(reports.createdAt))
     .all();
+
+  return rows as AdminReportItem[];
 }
 
 export function resolveReport(
   reportId: number,
   action: "dismiss" | "remove_deal",
-  admin: PublicUser,
+  adminUser: PublicUser,
   database: Db = getDb()
-): void {
-  if (admin.role !== "admin") throw Errors.forbidden();
-  const report = database.select().from(reports).where(eq(reports.id, reportId)).get();
-  if (!report) throw Errors.notFound("Rapor");
-  if (report.status !== "open") throw Errors.conflict("Bu rapor zaten çözümlenmiş.");
+): { ok: true } {
+  if (adminUser.role !== "admin") throw Errors.forbidden();
 
-  if (action === "remove_deal") {
-    database
-      .update(deals)
-      .set({ status: "removed", updatedAt: sql`(unixepoch())` })
-      .where(eq(deals.id, report.dealId))
-      .run();
-    database.update(reports).set({ status: "resolved" }).where(eq(reports.id, reportId)).run();
-  } else {
+  const report = database
+    .select({ id: reports.id, dealId: reports.dealId, status: reports.status })
+    .from(reports)
+    .where(eq(reports.id, reportId))
+    .get();
+  if (!report) throw Errors.notFound("Rapor");
+  if (report.status !== "open") throw Errors.conflict("Bu rapor zaten çözülmüş.");
+
+  const now = Math.floor(Date.now() / 1000);
+  if (action === "dismiss") {
     database
       .update(reports)
-      .set({ status: "dismissed", resolvedBy: admin.id, resolvedAt: sql`(unixepoch())` })
+      .set({ status: "dismissed", resolvedBy: adminUser.id, resolvedAt: now })
       .where(eq(reports.id, reportId))
       .run();
+
+    const openRemaining = database
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(reports)
+      .where(and(eq(reports.dealId, report.dealId), eq(reports.status, "open")))
+      .get();
+    if ((openRemaining?.count ?? 0) === 0) {
+      database
+        .update(deals)
+        .set({ status: "active" })
+        .where(and(eq(deals.id, report.dealId), eq(deals.status, "reported")))
+        .run();
+    }
+  } else if (action === "remove_deal") {
+    database
+      .update(reports)
+      .set({ status: "resolved", resolvedBy: adminUser.id, resolvedAt: now })
+      .where(eq(reports.id, reportId))
+      .run();
+    database
+      .update(deals)
+      .set({ status: "removed" })
+      .where(eq(deals.id, report.dealId))
+      .run();
   }
+
+  return { ok: true };
 }
 
-export function expireDueDeals(nowSec: number = Math.floor(Date.now() / 1000), database: Db = getDb()): number {
-  const result = database.run(
-    sql`UPDATE deals SET status = 'expired', updated_at = ${nowSec}
-        WHERE status = 'active' AND expires_at IS NOT NULL AND expires_at <= ${nowSec}`
-  );
+export function expireDueDeals(
+  nowTimestampOrDb?: number | Db,
+  database?: Db
+): number {
+  const db = (typeof nowTimestampOrDb === "object" ? nowTimestampOrDb : database) ?? getDb();
+  const nowTs = typeof nowTimestampOrDb === "number" ? nowTimestampOrDb : sql`(unixepoch())`;
+
+  const result = db
+    .update(deals)
+    .set({ status: "expired" })
+    .where(and(eq(deals.status, "active"), lte(deals.expiresAt, nowTs)))
+    .run();
   return result.changes;
 }
 
-export function isDealActive(
-  deal: { status: string; expiresAt: number | null },
-  nowSec: number = Math.floor(Date.now() / 1000)
-): boolean {
-  if (deal.status !== "active") return false;
-  if (deal.expiresAt !== null && deal.expiresAt <= nowSec) return false;
-  return true;
+export async function deleteDeal(
+  dealId: number,
+  user: PublicUser,
+  database: Db = getDb()
+): Promise<void> {
+  if (!Number.isInteger(dealId) || dealId <= 0) throw Errors.badRequest("Geçersiz fırsat.");
+
+  const deal = database.select().from(deals).where(eq(deals.id, dealId)).get();
+  if (!deal) throw Errors.notFound("Fırsat");
+
+  if (user.role !== "admin" && deal.authorId !== user.id) {
+    throw Errors.forbidden();
+  }
+
+  database.delete(deals).where(eq(deals.id, dealId)).run();
 }
+
+export type ReportWithMeta = AdminReportItem;
+

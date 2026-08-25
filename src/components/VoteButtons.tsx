@@ -4,10 +4,10 @@ import { useState } from "react";
 
 interface Props {
   dealId: number;
-  initialValue: 1 | -1 | 0;
+  initialValue?: 1 | -1 | 0;
 }
 
-export function VoteButtons({ dealId, initialValue }: Props) {
+export function VoteButtons({ dealId, initialValue = 0 }: Props) {
   const [vote, setVote] = useState(initialValue);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);

@@ -1,5 +1,6 @@
 import { createDb, runMigrations, type Db } from "@/server/db";
-import { categories, locations } from "@/db/schema";
+import { categories, locations, users } from "@/db/schema";
+import { register, type PublicUser } from "@/server/auth";
 import { eq, or, like } from "drizzle-orm";
 
 export function createTestDb(): Db {
@@ -11,6 +12,28 @@ export function createTestDb(): Db {
 export const VALID_PASSWORD = "Parola123456";
 
 let counter = 0;
+
+export async function makeUser(
+  db: Db,
+  email?: string,
+  role: "user" | "admin" = "user"
+): Promise<PublicUser> {
+  counter += 1;
+  const userEmail = email ?? `user${counter}@test.local`;
+  const { user } = await register(
+    { email: userEmail, password: VALID_PASSWORD, displayName: `User ${counter}` },
+    db
+  );
+  if (role === "admin") {
+    db.update(users).set({ role: "admin" }).where(eq(users.id, user.id)).run();
+    user.role = "admin";
+  }
+  return user;
+}
+
+export async function makeAdmin(db: Db): Promise<PublicUser> {
+  return makeUser(db, undefined, "admin");
+}
 
 export interface SeededRefs {
   categoryId: number;

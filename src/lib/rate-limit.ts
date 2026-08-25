@@ -57,4 +57,8 @@ export const RATE_LIMITS = {
   upload: { limit: 40, windowMs: 60 * 60_000 },
   commentCreate: { limit: 60, windowMs: 60 * 60_000 },
   commentDelete: { limit: 60, windowMs: 60 * 60_000 },
+  favorite: { limit: 120, windowMs: 60 * 60_000 },
+  verify: { limit: 60, windowMs: 60 * 60_000 },
+  profileUpdate: { limit: 30, windowMs: 60 * 60_000 },
+  notification: { limit: 60, windowMs: 60 * 60_000 },
 } as const;

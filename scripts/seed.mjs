@@ -14,6 +14,7 @@ const cityList = [
   { slug: "gazimagusa", name: "Gazimağusa", order: 3 },
   { slug: "guzelyurt", name: "Güzelyurt", order: 4 },
   { slug: "iskele", name: "İskele", order: 5 },
+  { slug: "lefke", name: "Lefke", order: 6 },
 ];
 
 const categories = [

@@ -1,17 +1,51 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDealDetail, getUserVote, isDealActive } from "@/server/deals";
+import { formatPrice, formatDate } from "@/lib/format";
+import { getDealDetail, incrementViewCount } from "@/server/deals";
 import { listComments } from "@/server/comments";
 import { getCurrentUser } from "@/server/current-user";
-import { formatPrice, formatRelativeTime, formatDate } from "@/lib/format";
 import { VoteButtons } from "@/components/VoteButtons";
 import { ReportButton } from "@/components/ReportButton";
 import { CommentSection } from "@/components/CommentSection";
-import { AppError } from "@/lib/errors";
-import { Store, MapPin, Tag, User, Calendar, History, Image as ImageIcon } from "lucide-react";
+import { FavoriteButton } from "@/components/FavoriteButton";
+import { VerificationPanel } from "@/components/VerificationPanel";
+import { ShareButtons } from "@/components/ShareButtons";
+import {
+  Store,
+  MapPin,
+  Tag,
+  Calendar,
+  Eye,
+  TrendingDown,
+  ArrowLeft,
+  CheckCircle2,
+  Phone,
+} from "lucide-react";
+import type { Metadata } from "next";
 
 interface Props {
   params: Promise<{ id: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  const dealId = Number.parseInt(id, 10);
+  if (!Number.isInteger(dealId) || dealId <= 0) return { title: "Fırsat Bulunamadı" };
+
+  try {
+    const deal = getDealDetail(dealId);
+    return {
+      title: `${deal.title} — ${formatPrice(deal.priceCents, deal.currency)} | Kıbrıs Fırsat`,
+      description: `${deal.storeName} (${deal.locationName}) - ${deal.title} fırsatını inceleyin. ${deal.description ?? ""}`,
+      openGraph: {
+        title: `${deal.title} — ${formatPrice(deal.priceCents, deal.currency)}`,
+        description: `${deal.storeName} (${deal.locationName}) fırsatı`,
+        images: deal.images.length > 0 ? [`/api/images/${deal.images[0].filename}`] : [],
+      },
+    };
+  } catch {
+    return { title: "Fırsat Bulunamadı" };
+  }
 }
 
 export default async function DealDetailPage({ params }: Props) {
@@ -19,173 +53,215 @@ export default async function DealDetailPage({ params }: Props) {
   const dealId = Number.parseInt(id, 10);
   if (!Number.isInteger(dealId) || dealId <= 0) notFound();
 
-  let detail;
+  let deal;
   try {
-    detail = getDealDetail(dealId);
-  } catch (err) {
-    if (err instanceof AppError && err.status === 404) notFound();
-    throw err;
+    deal = getDealDetail(dealId);
+    incrementViewCount(dealId);
+  } catch {
+    notFound();
   }
 
-  const user = await getCurrentUser();
-  const active = isDealActive({ status: detail.deal.status, expiresAt: detail.deal.expiresAt });
-  const userVote = user ? getUserVote(dealId, user.id) : 0;
-  const d = detail.deal;
-  const comments = listComments(dealId);
+  const [comments, currentUser] = await Promise.all([
+    listComments(dealId),
+    getCurrentUser(),
+  ]);
 
-  const hasDiscount =
-    d.originalPriceCents !== null && d.originalPriceCents > d.priceCents;
-  const discountPercent = hasDiscount
-    ? Math.round(((d.originalPriceCents! - d.priceCents) / d.originalPriceCents!) * 100)
-    : null;
+  let discountPercent = 0;
+  if (deal.originalPriceCents && deal.originalPriceCents > deal.priceCents) {
+    discountPercent = Math.round(
+      ((deal.originalPriceCents - deal.priceCents) / deal.originalPriceCents) * 100
+    );
+  }
+
+  // Schema.org JSON-LD Structured Data
+  const jsonLd = {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    name: deal.title,
+    description: deal.description || deal.title,
+    image: deal.images.map((img) => `/api/images/${img.filename}`),
+    offers: {
+      "@type": "Offer",
+      priceCurrency: deal.currency,
+      price: (deal.priceCents / 100).toFixed(2),
+      availability: deal.status === "active" ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      seller: {
+        "@type": "Organization",
+        name: deal.storeName,
+      },
+    },
+  };
 
   return (
-    <article className="mx-auto max-w-2xl space-y-6">
-      <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-xs">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-2xl font-bold leading-tight text-stone-900">{d.title}</h1>
+    <article className="mx-auto max-w-3xl space-y-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
+      <div className="flex items-center justify-between">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-500 hover:text-stone-900 transition"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Tüm Fırsatlara Dön
+        </Link>
+
+        <ShareButtons title={deal.title} />
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-xs space-y-5">
+        {/* Başlık & Oylama */}
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-4 border-b border-stone-100 pb-4">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2 py-0.5 text-xs font-bold text-teal-800 border border-teal-200/60">
+                <Tag className="h-3 w-3 text-teal-600" />
+                {deal.categoryName}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700">
+                <MapPin className="h-3 w-3 text-stone-500" />
+                {deal.locationName}
+              </span>
+              {deal.isVerified && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200/60">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                  Doğrulanmış Fırsat
+                </span>
+              )}
+            </div>
+
+            <h1 className="text-2xl font-black text-stone-900 leading-tight">
+              {deal.title}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <FavoriteButton dealId={deal.id} />
+            <VoteButtons dealId={deal.id} />
+          </div>
         </div>
 
-        {!active && (
-          <div className="mt-3 rounded-xl bg-amber-50 p-3 text-sm font-medium text-amber-800 border border-amber-200/70">
-            {d.status === "removed"
-              ? "Bu fırsat moderatörler tarafından kaldırılmış."
-              : d.status === "reported"
-                ? "Bu fırsat inceleme altında."
-                : "Bu fırsatın süresi dolmuş."}
-          </div>
-        )}
-
-        <div className="mt-4 flex items-baseline gap-3">
-          <span className="text-3.5xl font-black tracking-tight text-teal-800">
-            {formatPrice(d.priceCents, d.currency)}
+        {/* Fiyat & İndirim Alanı */}
+        <div className="flex flex-wrap items-baseline gap-3 rounded-xl bg-stone-50/80 p-4 border border-stone-200/60">
+          <span className="text-3xl font-black text-teal-800 tracking-tight">
+            {formatPrice(deal.priceCents, deal.currency)}
           </span>
-          {hasDiscount && (
+          {deal.originalPriceCents && deal.originalPriceCents > deal.priceCents && (
             <>
               <span className="text-lg font-medium text-stone-400 line-through">
-                {formatPrice(d.originalPriceCents!, d.currency)}
+                {formatPrice(deal.originalPriceCents, deal.currency)}
               </span>
-              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
-                %{discountPercent} İndirim
-              </span>
+              {discountPercent > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">
+                  <TrendingDown className="h-3.5 w-3.5" />
+                  %{discountPercent} İndirim
+                </span>
+              )}
             </>
           )}
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-3 rounded-xl bg-stone-50/80 p-4 sm:grid-cols-2 text-sm border border-stone-100">
-          <div className="flex items-center gap-2 text-stone-700">
-            <Store className="h-4 w-4 text-teal-600 shrink-0" />
-            <span className="text-stone-500">Mağaza:</span>
-            <span className="font-semibold text-stone-900">{detail.storeName}</span>
+        {/* Fotoğraflar (Varsa) */}
+        {deal.images && deal.images.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {deal.images.map((img) => (
+              <a
+                key={img.id}
+                href={`/api/images/${img.filename}`}
+                target="_blank"
+                rel="noreferrer"
+                className="group relative aspect-4/3 overflow-hidden rounded-xl border border-stone-200 bg-stone-100"
+              >
+                <img
+                  src={`/api/images/${img.filename}`}
+                  alt={deal.title}
+                  className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                />
+              </a>
+            ))}
           </div>
+        )}
 
-          <div className="flex items-center gap-2 text-stone-700">
-            <MapPin className="h-4 w-4 text-teal-600 shrink-0" />
-            <span className="text-stone-500">Konum:</span>
-            <span className="font-semibold text-stone-900">{detail.locationName}</span>
+        {/* Açıklama */}
+        {deal.description && (
+          <div className="rounded-xl border border-stone-100 bg-stone-50/40 p-4 text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">
+            {deal.description}
           </div>
+        )}
 
-          <div className="flex items-center gap-2 text-stone-700">
-            <Tag className="h-4 w-4 text-teal-600 shrink-0" />
-            <span className="text-stone-500">Kategori:</span>
-            <span className="font-semibold text-stone-900">{detail.categoryName}</span>
-          </div>
-
-          <div className="flex items-center gap-2 text-stone-700">
-            <User className="h-4 w-4 text-teal-600 shrink-0" />
-            <span className="text-stone-500">Paylaşan:</span>
-            <span className="font-semibold text-stone-900">{detail.authorName}</span>
-          </div>
-
-          <div className="flex items-center gap-2 text-stone-700">
-            <Calendar className="h-4 w-4 text-stone-400 shrink-0" />
-            <span className="text-stone-500">Paylaşım:</span>
-            <span>{formatRelativeTime(d.createdAt)}</span>
-          </div>
-
-          {d.expiresAt !== null && (
-            <div className="flex items-center gap-2 text-stone-700">
-              <Calendar className="h-4 w-4 text-stone-400 shrink-0" />
-              <span className="text-stone-500">Son Geçerlilik:</span>
-              <span className="font-medium text-stone-800">{formatDate(d.expiresAt)}</span>
-            </div>
-          )}
-        </div>
-
-        {d.description && (
-          <div className="mt-5 border-t border-stone-100 pt-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-400">Detaylar</h3>
-            <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-stone-700">
-              {d.description}
+        {/* Mağaza & Detay Bilgileri */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-stone-200/60 p-4 text-xs text-stone-600 bg-white">
+          <div className="space-y-1.5">
+            <p className="flex items-center gap-1.5 font-semibold text-stone-800">
+              <Store className="h-4 w-4 text-teal-600" />
+              İşletme:{" "}
+              <Link href={`/magaza/${deal.storeId}`} className="font-medium text-teal-700 hover:underline">
+                {deal.storeName}
+              </Link>
+            </p>
+            {deal.storePhone && (
+              <p className="flex items-center gap-1.5 text-stone-600">
+                <Phone className="h-4 w-4 text-stone-400" />
+                İletişim: {deal.storePhone}
+              </p>
+            )}
+            <p className="flex items-center gap-1.5 text-stone-500">
+              Paylaşan: <span className="font-medium text-stone-700">{deal.authorName}</span>
             </p>
           </div>
-        )}
 
-        {active && (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-stone-100 pt-5">
-            <div className="flex items-center gap-3">
-              {user ? (
-                <>
-                  <VoteButtons dealId={d.id} initialValue={userVote} />
-                  <ReportButton dealId={d.id} />
-                </>
-              ) : (
-                <p className="text-sm text-stone-500">
-                  <Link href="/giris" className="font-semibold text-teal-700 hover:underline">
-                    Giriş yapın
-                  </Link>{" "}
-                  (oy vermek ve şikayet için).
-                </p>
-              )}
-            </div>
+          <div className="space-y-1.5">
+            <p className="flex items-center gap-1.5 text-stone-500">
+              <Calendar className="h-4 w-4 text-stone-400" />
+              Paylaşım: {formatDate(deal.createdAt)}
+            </p>
+            {deal.expiresAt && (
+              <p className="flex items-center gap-1.5 text-amber-700 font-medium">
+                <Calendar className="h-4 w-4 text-amber-600" />
+                Son Geçerlilik: {formatDate(deal.expiresAt)}
+              </p>
+            )}
+            <p className="flex items-center gap-1.5 text-stone-500">
+              <Eye className="h-4 w-4 text-stone-400" />
+              {deal.viewCount} Görüntülenme
+            </p>
+          </div>
+        </div>
+
+        {/* Fiyat Geçmişi (Varsa) */}
+        {deal.priceHistory && deal.priceHistory.length > 1 && (
+          <div className="rounded-xl border border-stone-200 p-4">
+            <h3 className="text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">
+              Fiyat Değişim Geçmişi
+            </h3>
+            <ul className="divide-y divide-stone-100 text-xs">
+              {deal.priceHistory.map((ph) => (
+                <li key={ph.id} className="flex items-center justify-between py-1.5 text-stone-600">
+                  <span className="font-bold text-teal-800">
+                    {formatPrice(ph.priceCents, ph.currency)}
+                  </span>
+                  <span className="text-stone-400">{formatDate(ph.recordedAt)}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
+
+        <div className="flex justify-end pt-2">
+          <ReportButton dealId={deal.id} />
+        </div>
       </div>
 
-      {detail.images.length > 0 && (
-        <section aria-label="Fotoğraflar" className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-bold text-stone-800">
-            <ImageIcon className="h-4 w-4 text-teal-700" />
-            <span>Fırsat Görselleri ({detail.images.length})</span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {detail.images.map((img) => (
-              <img
-                key={img.filename}
-                src={`/api/images/${img.filename}`}
-                alt={`${d.title} fotoğrafı`}
-                loading="lazy"
-                className="w-full rounded-xl border border-stone-200 object-cover shadow-2xs hover:shadow-md transition"
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {detail.priceHistory.length > 1 && (
-        <section aria-label="Fiyat geçmişi" className="rounded-2xl border border-stone-200 bg-white p-6 shadow-xs">
-          <div className="flex items-center gap-2 border-b border-stone-100 pb-3">
-            <History className="h-4 w-4 text-teal-700" />
-            <h2 className="text-sm font-bold text-stone-900">Fiyat Değişim Geçmişi</h2>
-          </div>
-          <ul className="mt-3 space-y-2 text-sm text-stone-600">
-            {detail.priceHistory.map((entry) => (
-              <li key={entry.recordedAt} className="flex justify-between">
-                <span>{formatDate(entry.recordedAt)}</span>
-                <span className="font-semibold text-stone-900">
-                  {formatPrice(entry.priceCents, d.currency)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {/* Topluluk Güven & Doğrulama Paneli */}
+      <VerificationPanel dealId={deal.id} />
 
       {/* Yorumlar Bölümü */}
       <CommentSection
-        dealId={dealId}
+        dealId={deal.id}
         initialComments={comments}
-        currentUser={user}
+        currentUser={currentUser}
       />
     </article>
   );

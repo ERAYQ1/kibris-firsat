@@ -20,6 +20,9 @@ export const users = sqliteTable(
     role: text({ enum: ["user", "admin"] })
       .notNull()
       .default("user"),
+    avatar: text({ length: 120 }),
+    bio: text({ length: 300 }),
+    isBanned: integer().notNull().default(0),
     createdAt: integer().notNull().default(now),
   },
   (t) => [unique().on(t.email)]
@@ -75,6 +78,9 @@ export const stores = sqliteTable(
     locationId: integer()
       .notNull()
       .references(() => locations.id, { onDelete: "restrict" }),
+    phone: text({ length: 30 }),
+    address: text({ length: 200 }),
+    isVerified: integer().notNull().default(0),
     createdAt: integer().notNull().default(now),
   },
   (t) => [
@@ -104,9 +110,15 @@ export const deals = sqliteTable(
     storeId: integer()
       .notNull()
       .references(() => stores.id, { onDelete: "restrict" }),
-    status: text({ enum: ["active", "expired", "reported", "removed"] })
+    status: text({
+      enum: ["active", "expired", "sold_out", "hidden", "rejected", "reported", "removed"],
+    })
       .notNull()
       .default("active"),
+    viewCount: integer().notNull().default(0),
+    tags: text({ length: 200 }),
+    contactInfo: text({ length: 100 }),
+    isVerified: integer().notNull().default(0),
     expiresAt: integer(),
     createdAt: integer().notNull().default(now),
     updatedAt: integer().notNull().default(now),
@@ -115,7 +127,7 @@ export const deals = sqliteTable(
     check("chk_price_positive", sql`${t.priceCents} > 0`),
     check(
       "chk_status_valid",
-      sql`${t.status} IN ('active','expired','reported','removed')`
+      sql`${t.status} IN ('active','expired','sold_out','hidden','rejected','reported','removed')`
     ),
     index("idx_deals_status_created").on(t.status, t.createdAt),
     index("idx_deals_category").on(t.categoryId),
@@ -163,6 +175,62 @@ export const votes = sqliteTable(
   ]
 );
 
+export const favorites = sqliteTable(
+  "favorites",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    userId: integer()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    dealId: integer()
+      .notNull()
+      .references(() => deals.id, { onDelete: "cascade" }),
+    createdAt: integer().notNull().default(now),
+  },
+  (t) => [
+    unique("uq_favorite_user_deal").on(t.userId, t.dealId),
+    index("idx_favorites_user").on(t.userId),
+    index("idx_favorites_deal").on(t.dealId),
+  ]
+);
+
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    userId: integer()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text({ length: 120 }).notNull(),
+    message: text({ length: 500 }).notNull(),
+    link: text({ length: 200 }),
+    isRead: integer().notNull().default(0),
+    createdAt: integer().notNull().default(now),
+  },
+  (t) => [
+    index("idx_notifications_user").on(t.userId, t.createdAt),
+  ]
+);
+
+export const dealVerifications = sqliteTable(
+  "deal_verifications",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    dealId: integer()
+      .notNull()
+      .references(() => deals.id, { onDelete: "cascade" }),
+    userId: integer()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text({ enum: ["verified_active", "sold_out", "wrong_price"] }).notNull(),
+    createdAt: integer().notNull().default(now),
+  },
+  (t) => [
+    unique("uq_verification_user_deal").on(t.userId, t.dealId),
+    index("idx_verifications_deal").on(t.dealId),
+  ]
+);
+
 export const reports = sqliteTable(
   "reports",
   {
@@ -199,20 +267,6 @@ export const reports = sqliteTable(
   ]
 );
 
-export const priceEntries = sqliteTable(
-  "price_entries",
-  {
-    id: integer().primaryKey({ autoIncrement: true }),
-    dealId: integer()
-      .notNull()
-      .references(() => deals.id, { onDelete: "cascade" }),
-    priceCents: integer().notNull(),
-    currency: text({ enum: ["TRY", "GBP", "EUR"] }).notNull(),
-    recordedAt: integer().notNull().default(now),
-  },
-  (t) => [index("idx_price_entries_deal").on(t.dealId, t.recordedAt)]
-);
-
 export const comments = sqliteTable(
   "comments",
   {
@@ -232,9 +286,25 @@ export const comments = sqliteTable(
   ]
 );
 
-export const commentRelations = relations(comments, ({ one }) => ({
-  deal: one(deals, { fields: [comments.dealId], references: [deals.id] }),
-  author: one(users, { fields: [comments.userId], references: [users.id] }),
+export const priceEntries = sqliteTable(
+  "price_entries",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    dealId: integer()
+      .notNull()
+      .references(() => deals.id, { onDelete: "cascade" }),
+    priceCents: integer().notNull(),
+    currency: text({ enum: ["TRY", "GBP", "EUR"] }).notNull(),
+    recordedAt: integer().notNull().default(now),
+  },
+  (t) => [index("idx_price_entries_deal").on(t.dealId, t.recordedAt)]
+);
+
+export const userRelations = relations(users, ({ many }) => ({
+  deals: many(deals),
+  favorites: many(favorites),
+  notifications: many(notifications),
+  comments: many(comments),
 }));
 
 export const dealRelations = relations(deals, ({ one, many }) => ({
@@ -250,9 +320,33 @@ export const dealRelations = relations(deals, ({ one, many }) => ({
   store: one(stores, { fields: [deals.storeId], references: [stores.id] }),
   images: many(dealImages),
   comments: many(comments),
+  favorites: many(favorites),
+  verifications: many(dealVerifications),
+}));
+
+export const storeRelations = relations(stores, ({ one, many }) => ({
+  location: one(locations, { fields: [stores.locationId], references: [locations.id] }),
+  deals: many(deals),
+}));
+
+export const favoriteRelations = relations(favorites, ({ one }) => ({
+  user: one(users, { fields: [favorites.userId], references: [users.id] }),
+  deal: one(deals, { fields: [favorites.dealId], references: [deals.id] }),
+}));
+
+export const notificationRelations = relations(notifications, ({ one }) => ({
+  user: one(users, { fields: [notifications.userId], references: [users.id] }),
+}));
+
+export const commentRelations = relations(comments, ({ one }) => ({
+  deal: one(deals, { fields: [comments.dealId], references: [deals.id] }),
+  author: one(users, { fields: [comments.userId], references: [users.id] }),
 }));
 
 export type User = typeof users.$inferSelect;
 export type Deal = typeof deals.$inferSelect;
 export type Report = typeof reports.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
+export type Favorite = typeof favorites.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
+export type Store = typeof stores.$inferSelect;

@@ -15,6 +15,13 @@
       "when": 1787635672419,
       "tag": "0001_square_molten_man",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787636156197,
+      "tag": "0002_lean_sentinels",
+      "breakpoints": true
     }
   ]
 }
