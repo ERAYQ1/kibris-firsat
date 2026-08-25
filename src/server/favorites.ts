@@ -1,11 +1,15 @@
 import { eq, and, desc, sql } from "drizzle-orm";
 import { getDb, type Db } from "@/server/db";
-import { favorites, deals, categories, locations, stores } from "@/db/schema";
+import { favorites, deals, categories, locations, stores, users } from "@/db/schema";
 import { Errors } from "@/lib/errors";
 import type { DealListItem } from "@/server/deals";
 
 const scoreSubquery = sql<number>`(
   SELECT COALESCE(SUM(v.value), 0) FROM votes v WHERE v.deal_id = ${deals.id}
+)`;
+
+const primaryImageSubquery = sql<string | null>`(
+  SELECT di.filename FROM deal_images di WHERE di.deal_id = ${deals.id} ORDER BY di.sort_order ASC LIMIT 1
 )`;
 
 export function isFavorited(dealId: number, userId: number, database: Db = getDb()): boolean {
@@ -61,6 +65,7 @@ export function listUserFavorites(userId: number, database: Db = getDb()): DealL
   const rows = database
     .select({
       id: deals.id,
+      storeId: deals.storeId,
       title: deals.title,
       priceCents: deals.priceCents,
       originalPriceCents: deals.originalPriceCents,
@@ -68,6 +73,8 @@ export function listUserFavorites(userId: number, database: Db = getDb()): DealL
       status: deals.status,
       viewCount: deals.viewCount,
       isVerified: deals.isVerified,
+      couponCode: deals.couponCode,
+      couponDiscount: deals.couponDiscount,
       tags: deals.tags,
       createdAt: deals.createdAt,
       expiresAt: deals.expiresAt,
@@ -76,13 +83,16 @@ export function listUserFavorites(userId: number, database: Db = getDb()): DealL
       locationName: locations.name,
       locationSlug: locations.slug,
       storeName: stores.name,
+      authorName: users.displayName,
       score: scoreSubquery.as("score"),
+      imageFilename: primaryImageSubquery.as("image_filename"),
     })
     .from(favorites)
     .innerJoin(deals, eq(deals.id, favorites.dealId))
     .innerJoin(categories, eq(categories.id, deals.categoryId))
     .innerJoin(locations, eq(locations.id, deals.locationId))
     .innerJoin(stores, eq(stores.id, deals.storeId))
+    .innerJoin(users, eq(users.id, deals.authorId))
     .where(eq(favorites.userId, userId))
     .orderBy(desc(favorites.createdAt))
     .all();

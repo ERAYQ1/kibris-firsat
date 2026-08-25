@@ -1,11 +1,15 @@
 import { eq, desc, sql } from "drizzle-orm";
 import { getDb, type Db } from "@/server/db";
-import { stores, locations, deals, categories } from "@/db/schema";
+import { stores, locations, deals, categories, users } from "@/db/schema";
 import { Errors } from "@/lib/errors";
 import type { DealListItem } from "@/server/deals";
 
 const scoreSubquery = sql<number>`(
   SELECT COALESCE(SUM(v.value), 0) FROM votes v WHERE v.deal_id = ${deals.id}
+)`;
+
+const primaryImageSubquery = sql<string | null>`(
+  SELECT di.filename FROM deal_images di WHERE di.deal_id = ${deals.id} ORDER BY di.sort_order ASC LIMIT 1
 )`;
 
 export interface StoreDetail {
@@ -52,6 +56,7 @@ export function listStoreDeals(storeId: number, database: Db = getDb()): DealLis
   const rows = database
     .select({
       id: deals.id,
+      storeId: deals.storeId,
       title: deals.title,
       priceCents: deals.priceCents,
       originalPriceCents: deals.originalPriceCents,
@@ -59,6 +64,8 @@ export function listStoreDeals(storeId: number, database: Db = getDb()): DealLis
       status: deals.status,
       viewCount: deals.viewCount,
       isVerified: deals.isVerified,
+      couponCode: deals.couponCode,
+      couponDiscount: deals.couponDiscount,
       tags: deals.tags,
       createdAt: deals.createdAt,
       expiresAt: deals.expiresAt,
@@ -67,12 +74,15 @@ export function listStoreDeals(storeId: number, database: Db = getDb()): DealLis
       locationName: locations.name,
       locationSlug: locations.slug,
       storeName: stores.name,
+      authorName: users.displayName,
       score: scoreSubquery.as("score"),
+      imageFilename: primaryImageSubquery.as("image_filename"),
     })
     .from(deals)
     .innerJoin(categories, eq(categories.id, deals.categoryId))
     .innerJoin(locations, eq(locations.id, deals.locationId))
     .innerJoin(stores, eq(stores.id, deals.storeId))
+    .innerJoin(users, eq(users.id, deals.authorId))
     .where(eq(deals.storeId, storeId))
     .orderBy(desc(deals.createdAt))
     .all();

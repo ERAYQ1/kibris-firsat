@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getStoreDetail, listStoreDeals } from "@/server/stores";
-import { DealCard } from "@/components/DealCard";
+import { DealGridViewCard } from "@/components/deals/DealGridViewCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { MapPin, Phone, ArrowLeft, Tag } from "lucide-react";
@@ -106,7 +106,7 @@ export default async function StorePage({ params }: Props) {
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {deals.map((deal) => (
-              <DealCard key={deal.id} deal={deal} />
+              <DealGridViewCard key={deal.id} deal={deal} />
             ))}
           </div>
         )}

@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { DealCard } from "@/components/DealCard";
+import { DealGridViewCard } from "@/components/deals/DealGridViewCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { listUserFavorites } from "@/server/favorites";
 import { requireUser } from "@/server/auth";
@@ -55,7 +55,7 @@ export default async function FavoritesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {items.map((deal) => (
-            <DealCard key={deal.id} deal={deal} />
+            <DealGridViewCard key={deal.id} deal={deal} />
           ))}
         </div>
       )}

@@ -32,6 +32,7 @@ import { checkAndTriggerPriceAlerts } from "@/server/alerts";
 
 export interface DealListItem {
   id: number;
+  storeId: number;
   title: string;
   priceCents: number;
   originalPriceCents: number | null;
@@ -49,6 +50,7 @@ export interface DealListItem {
   locationName: string;
   locationSlug: string;
   storeName: string;
+  authorName: string;
   score: number;
   imageFilename?: string | null;
 }
@@ -92,6 +94,7 @@ function listQuery(database: Db) {
   return database
     .select({
       id: deals.id,
+      storeId: deals.storeId,
       title: deals.title,
       priceCents: deals.priceCents,
       originalPriceCents: deals.originalPriceCents,
@@ -109,13 +112,15 @@ function listQuery(database: Db) {
       locationName: locations.name,
       locationSlug: locations.slug,
       storeName: stores.name,
+      authorName: users.displayName,
       score: scoreSubquery.as("score"),
       imageFilename: primaryImageSubquery.as("image_filename"),
     })
     .from(deals)
     .innerJoin(categories, eq(categories.id, deals.categoryId))
     .innerJoin(locations, eq(locations.id, deals.locationId))
-    .innerJoin(stores, eq(stores.id, deals.storeId));
+    .innerJoin(stores, eq(stores.id, deals.storeId))
+    .innerJoin(users, eq(users.id, deals.authorId));
 }
 
 export async function listDeals(

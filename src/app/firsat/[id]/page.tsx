@@ -15,8 +15,9 @@ import { DealGallery } from "@/components/deals/DealGallery";
 import { LiveCountdown } from "@/components/deals/LiveCountdown";
 import { CouponBadge } from "@/components/deals/CouponBadge";
 import { PriceAlertButton } from "@/components/deals/PriceAlertButton";
+import { CardVoteMeter } from "@/components/deals/CardVoteMeter";
+import { DealGridViewCard } from "@/components/deals/DealGridViewCard";
 import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
-import { DealCard } from "@/components/DealCard";
 import {
   MapPin,
   Tag,
@@ -137,6 +138,7 @@ export default async function DealDetailPage({ params }: Props) {
             title={deal.title}
             categorySlug={deal.categorySlug}
             categoryName={deal.categoryName}
+            storeName={deal.storeName}
             images={deal.images}
           />
 
@@ -209,6 +211,12 @@ export default async function DealDetailPage({ params }: Props) {
             {/* Rozetler & Üst Bilgi */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
+                <CardVoteMeter
+                  dealId={deal.id}
+                  initialScore={deal.score}
+                  initialUserVote={0}
+                  orientation="horizontal"
+                />
                 <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
                   <Tag className="h-3 w-3 text-slate-400" />
                   {deal.categoryName}
@@ -329,7 +337,7 @@ export default async function DealDetailPage({ params }: Props) {
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {relatedDeals.map((rDeal) => (
-              <DealCard key={rDeal.id} deal={rDeal} />
+              <DealGridViewCard key={rDeal.id} deal={rDeal} />
             ))}
           </div>
         </section>
